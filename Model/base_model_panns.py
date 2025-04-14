@@ -1,13 +1,32 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim 
 import torchaudio
+import platform
 import os 
 from models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
 
+#-------------------------------------------------------------------------# 
 
-# 계속 클래스만 남겨서 
+def get_device():
+    system = platform.system()
 
+    if system == 'Darwin':  # macOS
+        if torch.backends.mps.is_available():
+            print("macOS + MPS 사용")
+            return torch.device('mps')
+        else:
+            print("macOS지만 MPS 사용 불가 → CPU로 대체")
+            return torch.device('cpu')
+
+    elif torch.cuda.is_available():  # Windows/Linux with GPU
+        print("CUDA GPU 사용")
+        return torch.device('cuda')
+
+    else:
+        print("GPU 사용 불가 → CPU 사용")
+        return torch.device('cpu')
 # -------------------------------- 4월 13일 -------------------------------- # 
 
 # 모델 찾음 : PANN // 
@@ -28,7 +47,7 @@ class PANNsCNN10(nn.Module):
 
 # 커스텀 분류기 (전이학습용)
 class TransferClassifier(nn.Module):
-    def __init__(self, input_dim=1024, num_classes=3):
+    def __init__(self, input_dim=1024, num_classes=3): # 내가 출력하고 싶은 클래스는 여기서 수정하면 된다
         super().__init__()
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -104,3 +123,91 @@ class AudioEmbeddingDataset(Dataset):
         return emb, label
 
 # 데이터셋 자동 처리 모델 
+
+# embedding  -> classifer -> label 
+# 일단은 최대한 간단하게 모델 구성 
+# 학습 루프 구성 
+
+
+class TransferClassifier(nn.Module):
+    # input_dim은 CNN10 = 1024, CNN6 = 512 
+    def __init__(self,input_dim = 1024,num_classes =3): 
+        super().__init__() 
+        self.classifier = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256,128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128,num_classes)
+        )
+    
+    def forward(self,x): 
+        return self.classifier(x) 
+
+
+# ----------- 전이학습 후에 임베딩 추출하고, 추출된 임베딩과 라벨로 Classifier를 구현하는 부분임
+def train_classifier(classifier, dataloader, num_classes, epochs=10):
+    device = get_device() # 맥에서는 쿠다 안되니 윈도우 컴에서 구현 ㄱㄱ 
+    classifier = classifier.to(device) 
+    optimizer = optim.Adam(classifier.parameters(), lr = 1e-3)
+    criterion = nn.CrossEntropyLoss() 
+
+    for epoch in range(epoch): 
+        classifier.train()
+        total_loss = 0 
+        correct = 0 
+        total = 0 
+
+        for x,y in dataloader: 
+            x, y = x.to(device), y.to(device)
+
+            optimizer.zero_grad()
+            logits = classifier(x) 
+            loss = criterion(logits,y) 
+            loss.backward() 
+            optimizer.step()
+
+            total_loss += loss.item() 
+            pred = torch.argmax(logits, dim = 1) 
+            correct += (pred == y).sum().item()
+            total += y.size(0)
+
+        acc = correct / total 
+        print(f"[{epoch+1}/{epochs}] Loss: {total_loss:.4f}, Accuracy: {acc:.4f}")
+
+
+#------------------------ 4월 15일 개발 ---------------------# 
+
+def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device = "cpu"):
+    import torchaudio
+    import torch 
+
+    # 1. 오디오 로드 
+    waveform, sr = torchaudio.load(file_path)
+    if waveform.shape[0] > 1:  
+        waveform = waveform.mean(dim = 0, keepdim= True)
+    
+    # 2. 리샘플링
+    if sr != 32000:
+        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq = 32000)
+        waveform = resampler(waveform)
+
+    waveform = waveform.squeeze(0).unsqueeze(0).to(device)
+    
+    # 3. 임베딩 추출
+    with torch.no_grad():
+        embedding = panns_model(waveform) 
+
+    # 4. 분류기 추출 
+    with torch.no_grad():
+        logits = classifier_model(embedding.to(device))
+        pred_idx = torch.argmax(logits, dim = 1).item()
+
+    # 5. 출력 
+    idx_to_label = {v: k for k, v in label_dict.items()}
+    pred_label = idx_to_label[pred_idx]
+
+    print(f"🧠 Predicted: {pred_label} | 📍 Room {room_id}")
+    return {"room_id": room_id, "predicted_class": pred_label}
