@@ -4,6 +4,7 @@ import torch.optim as optim
 import torchaudio
 import platform
 import os 
+
 from models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
 
@@ -127,7 +128,7 @@ class AudioEmbeddingDataset(Dataset):
 # embedding  -> classifer -> label 
 # 일단은 최대한 간단하게 모델 구성 
 # 학습 루프 구성 
-
+# 클래스는 몇 개로 분류?? 
 
 class TransferClassifier(nn.Module):
     # input_dim은 CNN10 = 1024, CNN6 = 512 
