@@ -180,6 +180,7 @@ def train_classifier(classifier, dataloader, num_classes, epochs=10):
 
 
 #------------------------ 4월 15일 개발 ---------------------# 
+# --- 오디오 추론 모델 개발 --- #  
 
 def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device = "cpu"):
     import torchaudio
