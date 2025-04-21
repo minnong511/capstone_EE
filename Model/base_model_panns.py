@@ -70,6 +70,25 @@ class PANNsCNN10(nn.Module):
 
 # 4. (embedding, label) 쌍을 모아서 학습 
 
+class LabelDict:
+    def __init__(self, dataset_path):
+        self.dataset_path = dataset_path
+        self.label_dict = self._build_label_dict()
+
+    def _build_label_dict(self):
+        class_folders = sorted(
+            f for f in os.listdir(self.dataset_path)
+            if os.path.isdir(os.path.join(self.dataset_path, f)) and not f.startswith('.')
+        )
+        return {class_name: idx for idx, class_name in enumerate(class_folders)}
+
+    def get(self):
+        return self.label_dict
+
+    def reverse(self):
+        return {v: k for k, v in self.label_dict.items()}
+
+
 class AudioEmbeddingDataset(Dataset): 
     def __init__(self, root_dir, model, sample_rate=32000): 
         self.samples = [] 
@@ -112,7 +131,6 @@ class AudioEmbeddingDataset(Dataset):
         return emb, label
 
 # 데이터셋 자동 처리 모델 
-
 # embedding  -> classifer -> label 
 # 일단은 최대한 간단하게 모델 구성 
 # 학습 루프 구성 
@@ -121,7 +139,7 @@ class AudioEmbeddingDataset(Dataset):
 class TransferClassifier(nn.Module):
     # input_dim은 CNN10 = 1024, CNN6 = 512 
     # 분류해야 할 클래스는 15개 
-    def __init__(self,input_dim = 1024,num_classes = 15): 
+    def __init__(self,input_dim = 1024, num_classes = 15): 
         super().__init__() 
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, 256),
@@ -171,9 +189,7 @@ def train_classifier(classifier, dataloader, num_classes, epochs=10):
 #------------------------ 4월 15일 개발 ---------------------# 
 # --- 오디오 추론 모델 개발 --- #  
 
-def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device = "cpu"):
-    import torchaudio
-    import torch 
+def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device = get_device):
 
     # 1. 오디오 로드 
     waveform, sr = torchaudio.load(file_path)

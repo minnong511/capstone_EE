@@ -1,5 +1,5 @@
 # 필요할 때마다 base 모델에서 불러오는 것을 추천함 
-from base_model_panns import (
+from Model.base_model_panns import (
     AudioEmbeddingDataset,
     PANNsCNN10,
     TransferClassifier,
@@ -46,22 +46,17 @@ train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs
 
 # ----------------------- 모델 추론 -------------------------------
 
-# 데이터 인풋은 하나만 들어가게 될 것.  
+## 추론 파일 저장하기 
+test_folder = "./Test_Dataset"
 
-# Validation Set으로 데이터셋을 평가해야 함. -> 범용성 있는 확인해야 한다. 
-# 여기서는 음성 데이터, 방 번호가 들어가게 되는데, 음성 데이터만 추론 모델에 들어가게 되고, 방 번호는 그대로 통과해서 출력 레이블에 그대로 붙게 될 것임.
+test_files = [f for f in os.listdir(test_folder) if f.endswith(".wav")]
 
-# result = infer_audio(
-#     filepath="./inputs/dog_bark.wav",
-#     room_id=1,
-#     panns_model=panns,
-#     classifier_model=classifier,
-#     label_dict=label_dict,
-#     device=device
-# )
+# 추론 반복 
+for fname in test_files: 
+    file_path = os.path.join(test_folder, fname)
 
-# 👇 출력 결과 딕셔너리 활용
-# {'room_id': 1, 'predicted_class': 'dog_bark'}
+    # 예시 : 방 번호를 파일명에서 추출하거나 고정값 사용 
+    room_id = ""
 
 #------------------------- 알림 시스템 개발 --------------------------- # 
 
