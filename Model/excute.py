@@ -28,29 +28,25 @@ model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
 
 # 2. Dataset & Dataloader
 dataset = AudioEmbeddingDataset(root_dir='./your_dataset', model=model)
-loader = DataLoader(dataset, batch_size=8, shuffle=True)
+loader = DataLoader(dataset, batch_size=16, shuffle=True)  # 배치 사이즈는 16으로 통일
 
-# 3. 학습 루프에서 사용
+# (선택) 데이터 확인용: 한 번만 출력
 for x, y in loader:
-    print(x.shape)  # torch.Size([8, 512]) or [8, 1024]
-    print(y.shape)  # torch.Size([8])
+    print(x.shape)  # torch.Size([16, 1024]) → 열은 임베딩 사이즈
+    print(y.shape)  # torch.Size([16])
     break
 
 print(dataset.label_dict)
 
-# ------------------------- 전이 학습 -----------------------------
-
-# 전처리된 embedding dataset & dataloader
-dataset = AudioEmbeddingDataset(root_dir='./your_dataset', model=model)
-loader = DataLoader(dataset, batch_size=16, shuffle=True)
-
-# classifier 정의
+# 3. 분류기 정의
 classifier = TransferClassifier(input_dim=1024, num_classes=len(dataset.label_dict))
 
-# 학습 시작
+# 4. 전이 학습 수행
 train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=20)
 
 # ----------------------- 모델 추론 -------------------------------
+
+# 데이터 인풋은 하나만 들어가게 될 것.  
 
 # Validation Set으로 데이터셋을 평가해야 함. -> 범용성 있는 확인해야 한다. 
 # 여기서는 음성 데이터, 방 번호가 들어가게 되는데, 음성 데이터만 추론 모델에 들어가게 되고, 방 번호는 그대로 통과해서 출력 레이블에 그대로 붙게 될 것임.

@@ -46,20 +46,6 @@ class PANNsCNN10(nn.Module):
             output = self.model(x)
             return output['embedding']  # (batch, 1024)
 
-# 커스텀 분류기 (전이학습용)
-class TransferClassifier(nn.Module):
-    def __init__(self, input_dim=1024, num_classes=3): # 내가 출력하고 싶은 클래스는 여기서 수정하면 된다
-        super().__init__()
-        self.classifier = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, num_classes)
-        )
-
-    def forward(self, x):
-        return self.classifier(x)
-
 # 테스트 실행
 # if __name__ == '__main__':
 #     model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
@@ -85,41 +71,43 @@ class TransferClassifier(nn.Module):
 # 4. (embedding, label) 쌍을 모아서 학습 
 
 class AudioEmbeddingDataset(Dataset): 
-    def __init__(self, root_dir, model, sample_rate = 32000): 
+    def __init__(self, root_dir, model, sample_rate=32000): 
         self.samples = [] 
         self.model = model 
         self.model.eval() 
-        self.resampler = torchaudio.transforms.Resample(orig_freq=44100, new_freq=sample_rate)  # default wav: 44.1kHz
+        self.sample_rate = sample_rate
         self.label_dict = {}
 
         for idx, label_name in enumerate(sorted(os.listdir(root_dir))): 
             self.label_dict[label_name] = idx 
-            label_dir = os.path.join(root_dir,label_name)
+            label_dir = os.path.join(root_dir, label_name)
+
             for frame in os.listdir(label_dir): 
                 if frame.endswith(".wav"): 
-                    fpath = os.path.join(label_dir, name)
-                    self.samples.append((fpath,idx)) 
+                    fpath = os.path.join(label_dir, frame)  # ✅ 수정된 부분
+                    self.samples.append((fpath, idx)) 
     
     def __len__(self):
         return len(self.samples) 
     
-    def __getitem__(self,idx): 
+    def __getitem__(self, idx): 
         fpath, label = self.samples[idx] 
         waveform, sr = torchaudio.load(fpath) 
 
-        # 모노 변환 
-        if waveform.shape[0] > 1 : 
-            waveform = waveform.mean(dim = 0 , keepdim= True) 
+        # 스테레오 → 모노
+        if waveform.shape[0] > 1: 
+            waveform = waveform.mean(dim=0, keepdim=True) 
         
-        # 리샘플링 -> 32000으로 만들어줘야 한다. 
-        if sr != 32000:
-            waveform = self.resampler(dim = 0, keepdim = True) 
+        # 동적으로 리샘플링 처리
+        if sr != self.sample_rate:
+            resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)
+            waveform = resampler(waveform)
         
-        waveform = waveform.squeeze(0).unsqueeze(0)  # → (1, length)
+        waveform = waveform.squeeze(0).unsqueeze(0)  # (1, length)
 
-        # 모델에 넣어서 임베딩만 추출하되, 학습을 하지 않기 위해 no_grad를 사용한다. 
+        # 임베딩 추출
         with torch.no_grad():
-            emb = self.model(waveform)[0]  # → (512,) or (1024,) depending on model
+            emb = self.model(waveform)[0]  # → (512,) or (1024,)
 
         return emb, label
 
@@ -132,15 +120,16 @@ class AudioEmbeddingDataset(Dataset):
 
 class TransferClassifier(nn.Module):
     # input_dim은 CNN10 = 1024, CNN6 = 512 
-    def __init__(self,input_dim = 1024,num_classes =3): 
+    # 분류해야 할 클래스는 15개 
+    def __init__(self,input_dim = 1024,num_classes = 15): 
         super().__init__() 
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, 256),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.2),
             nn.Linear(256,128),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.Linear(128,num_classes)
         )
     
