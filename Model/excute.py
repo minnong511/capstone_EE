@@ -12,7 +12,6 @@ import torch.optim  as optim
 from torch.utils.data import DataLoader
 import os 
 
-# ------ multimodal로 구현하고 싶다.. ㅋㅋㅋ ---- 방학의 정보를 내가 학습하지 않으면 좋을 거 같은데 
 # 이건 학습이라서 데이터셋에 방에 관련된 정보는 들어오지 않을 것임. ----------
 # 학습용 데이터에는 음성 및 라벨링만 들어있을 예정 
 
