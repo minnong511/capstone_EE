@@ -162,7 +162,7 @@ def train_classifier(classifier, dataloader, num_classes, epochs=10):
     optimizer = optim.Adam(classifier.parameters(), lr = 1e-3)
     criterion = nn.CrossEntropyLoss() 
 
-    for epoch in range(epoch): 
+    for epoch in range(epochs): 
         classifier.train()
         total_loss = 0 
         correct = 0 
