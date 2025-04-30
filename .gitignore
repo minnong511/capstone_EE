@@ -1,3 +1,7 @@
 Model/pretrained/Cnn10.pth
 *.pth
 Dataset 
+mp3_to_wav_converter/original_file
+mp3_to_wav_converter/wav_file
+Infer_Test_Dataset
+Dataset/Dataset/.DS_Store

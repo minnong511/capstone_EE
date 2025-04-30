@@ -1,12 +1,18 @@
 # 필요할 때마다 base 모델에서 불러오는 것을 추천함 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from Model.base_model_panns import (
     AudioEmbeddingDataset,
     PANNsCNN10,
     TransferClassifier,
     train_classifier,
     infer_audio,
-    get_device
+    get_device, 
+    get_label_dict
 )
+
 
 import torch 
 import torch.nn as nn
@@ -23,14 +29,42 @@ device = get_device()# device를 먼저 밝히는 게 먼저이다~
 
 # ----------------------- 모델 추론 -------------------------------
 
-## 추론 파일 저장하기 
-test_folder = "./Test_Dataset"
+# 테스트 폴더 경로
+test_folder = "./Infer_Test_Dataset"
 
+
+# 모델, 레이블, 디바이스 정의
+panns_model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
+panns_model.to(device)
+panns_model.eval()
+
+# 2. Transfer Classifier (사전 학습된 분류기)
+classifier_model_path = "Model/classifier_model.pth"
+label_dict = get_label_dict(root_dir='./Dataset/Dataset')  # 예: {"speech": 0, "dog_bark": 1, ...}
+
+classifier_model = TransferClassifier(input_dim=512, num_classes=len(label_dict))
+classifier_model.load_state_dict(torch.load(classifier_model_path, map_location=device))
+classifier_model.to(device)
+classifier_model.eval()
+
+device = get_device()
+# 파일 리스트 가져오기
 test_files = [f for f in os.listdir(test_folder) if f.endswith(".wav")]
 
-# 추론 반복 
-for fname in test_files: 
-    file_path = os.path.join(test_folder, fname)
+# 파일별 추론 수행
+for filename in test_files:
+    try:
+        room_id = filename.split("_")[0]
+        file_path = os.path.join(test_folder, filename)
 
-    # 예시 : 방 번호를 파일명에서 추출하거나 고정값 사용 
-    room_id = ""
+        infer_audio(
+            file_path=file_path,
+            room_id=room_id,
+            panns_model=panns_model,
+            classifier_model=classifier_model,  # ← 여기 바뀜!
+            label_dict=label_dict,
+            device=device
+        )
+
+    except Exception as e:
+        print(f"[ERROR] Failed to process {filename}: {e}")

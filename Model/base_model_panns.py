@@ -5,6 +5,7 @@ import torchaudio
 import platform
 import os 
 
+
 from models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
 
@@ -89,6 +90,25 @@ class LabelDict:
         return {v: k for k, v in self.label_dict.items()}
 
 
+# Label_directory만 가져오기 
+def get_label_dict(root_dir):
+    """
+    루트 디렉토리 내 라벨 폴더명을 기준으로 label_dict 생성
+    예: {'dog_bark': 0, 'speech': 1, ...}
+    """
+    label_dict = {}
+
+    label_folders = sorted([
+        name for name in os.listdir(root_dir)
+        if os.path.isdir(os.path.join(root_dir, name))
+    ])
+
+    for idx, label_name in enumerate(label_folders):
+        label_dict[label_name] = idx
+
+    return label_dict
+
+
 class AudioEmbeddingDataset(Dataset): 
     def __init__(self, root_dir, model, sample_rate=32000): 
         self.samples = [] 
@@ -97,15 +117,22 @@ class AudioEmbeddingDataset(Dataset):
         self.sample_rate = sample_rate
         self.label_dict = {}
 
-        for idx, label_name in enumerate(sorted(os.listdir(root_dir))): 
+        # 라벨 디렉토리만 가져와서 label_dict 구성
+        label_folders = sorted([
+            name for name in os.listdir(root_dir)
+            if os.path.isdir(os.path.join(root_dir, name))
+        ])
+
+        for idx, label_name in enumerate(label_folders): 
             self.label_dict[label_name] = idx 
             label_dir = os.path.join(root_dir, label_name)
 
-            for frame in os.listdir(label_dir): 
-                if frame.endswith(".wav"): 
-                    fpath = os.path.join(label_dir, frame)  # ✅ 수정된 부분
-                    self.samples.append((fpath, idx)) 
-    
+            # 해당 라벨 폴더 내 .wav 파일 추가
+            for frame in os.listdir(label_dir):
+                if frame.endswith(".wav"):
+                    fpath = os.path.join(label_dir, frame)
+                    self.samples.append((fpath, idx))
+                        
     def __len__(self):
         return len(self.samples) 
     
@@ -117,7 +144,7 @@ class AudioEmbeddingDataset(Dataset):
         if waveform.shape[0] > 1: 
             waveform = waveform.mean(dim=0, keepdim=True) 
         
-        # 동적으로 리샘플링 처리
+        # 리샘플링
         if sr != self.sample_rate:
             resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)
             waveform = resampler(waveform)
@@ -156,65 +183,63 @@ class TransferClassifier(nn.Module):
 
 
 # ----------- 전이학습 후에 임베딩 추출하고, 추출된 임베딩과 라벨로 Classifier를 구현하는 부분임
-def train_classifier(classifier, dataloader, num_classes, epochs=10):
-    device = get_device() # 맥에서는 쿠다 안되니 윈도우 컴에서 구현 ㄱㄱ 
-    classifier = classifier.to(device) 
-    optimizer = optim.Adam(classifier.parameters(), lr = 1e-3)
-    criterion = nn.CrossEntropyLoss() 
+def train_classifier(classifier, dataloader, num_classes, epochs=10, save_path='Model/classifier_model.pth'):
+    device = get_device()
+    classifier = classifier.to(device)
+    optimizer = optim.Adam(classifier.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(epochs): 
+    for epoch in range(epochs):
         classifier.train()
-        total_loss = 0 
-        correct = 0 
-        total = 0 
+        total_loss = 0
+        correct = 0
+        total = 0
 
-        for x,y in dataloader: 
+        for x, y in dataloader:
             x, y = x.to(device), y.to(device)
-
             optimizer.zero_grad()
-            logits = classifier(x) 
-            loss = criterion(logits,y) 
-            loss.backward() 
+            logits = classifier(x)
+            loss = criterion(logits, y)
+            loss.backward()
             optimizer.step()
 
-            total_loss += loss.item() 
-            pred = torch.argmax(logits, dim = 1) 
+            total_loss += loss.item()
+            pred = torch.argmax(logits, dim=1)
             correct += (pred == y).sum().item()
             total += y.size(0)
 
-        acc = correct / total 
+        acc = correct / total
         print(f"[{epoch+1}/{epochs}] Loss: {total_loss:.4f}, Accuracy: {acc:.4f}")
 
+    torch.save(classifier.state_dict(), save_path)
+    print(f"Classifier model saved to {save_path}")
 
 #------------------------ 4월 15일 개발 ---------------------# 
-# --- 오디오 추론 모델 개발 --- #  
+# --- 오디오 추론 --- # 
+def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device = get_device):
-
-    # 1. 오디오 로드 
+    # 1. 오디오 로드 및 전처리
     waveform, sr = torchaudio.load(file_path)
-    if waveform.shape[0] > 1:  
-        waveform = waveform.mean(dim = 0, keepdim= True)
-    
-    # 2. 리샘플링
+    if waveform.shape[0] > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+
     if sr != 32000:
-        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq = 32000)
+        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=32000)
         waveform = resampler(waveform)
 
     waveform = waveform.squeeze(0).unsqueeze(0).to(device)
-    
-    # 3. 임베딩 추출
-    with torch.no_grad():
-        embedding = panns_model(waveform) 
 
-    # 4. 분류기 추출 
+    # 2. 임베딩 추출 및 추론
     with torch.no_grad():
-        logits = classifier_model(embedding.to(device))
-        pred_idx = torch.argmax(logits, dim = 1).item()
+        embedding = panns_model(waveform)
+        logits = classifier_model(embedding)
+        pred_idx = torch.argmax(logits, dim=1).item()
 
-    # 5. 출력 
+    # 3. 결과 매핑
     idx_to_label = {v: k for k, v in label_dict.items()}
     pred_label = idx_to_label[pred_idx]
 
-    print(f"🧠 Predicted: {pred_label} | 📍 Room {room_id}")
+    print(f"Predicted: {pred_label} | Room {room_id}")
     return {"room_id": room_id, "predicted_class": pred_label}
