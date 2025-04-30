@@ -45,4 +45,4 @@ print(dataset.label_dict)
 classifier = TransferClassifier(input_dim=512, num_classes=len(dataset.label_dict))
 
 # 4. 전이 학습 수행
-train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=2)
+train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=10)
