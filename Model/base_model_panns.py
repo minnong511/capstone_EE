@@ -216,7 +216,8 @@ def train_classifier(classifier, dataloader, num_classes, epochs=10, save_path='
 
 #------------------------ 4월 15일 개발 ---------------------# 
 # --- 오디오 추론 --- # 
-def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, device=None):
+def infer_audio(file_path, room_id, date, time, panns_model, classifier_model, label_dict, device=None):
+    
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -241,5 +242,5 @@ def infer_audio(file_path, room_id, panns_model, classifier_model, label_dict, d
     idx_to_label = {v: k for k, v in label_dict.items()}
     pred_label = idx_to_label[pred_idx]
 
-    print(f"Predicted: {pred_label} | Room {room_id}")
+    print(f"Predicted: {pred_label} | Room {room_id} | Date {date} | time {time}")
     return {"room_id": room_id, "predicted_class": pred_label}

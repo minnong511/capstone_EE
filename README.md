@@ -1,6 +1,3 @@
-# capstone_EE
-Electrical engineering Capstone designe Github repository 
-
 # Seoultech EE 2025 Capstone Design 
 ### 이민형, 김수왕, 김민지 
 
@@ -24,9 +21,13 @@ Electrical engineering Capstone designe Github repository
 
 ### 4. Sound Classification
 1. Dataset Collection and Preprocessing  
+    - 진행중 
 2. PANNs Model and Transfer Learning  
-3. Class Definitions and Label Mapping  
+    - 개발 완료 
+3. Class Definitions and Label Mapping
+    - 개발 완료 
 4. Embedding Extraction and Classifier Design  
+    - 개발 완료 
 
 ### 5. Alert Management System
 1. Mapping Sound Classes to Alert Priorities  
@@ -47,6 +48,3 @@ Electrical engineering Capstone designe Github repository
 1. Summary and Achievements  
 2. Limitations and Challenges  
 3. Future Work and Improvements  
-
-
-자~ 우리 모두 졸업 작품을 해봐요~

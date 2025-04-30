@@ -52,19 +52,26 @@ device = get_device()
 test_files = [f for f in os.listdir(test_folder) if f.endswith(".wav")]
 
 # 파일별 추론 수행
+# (추론한 거, 방 번호, 날짜, 시간) 출력하게 된다. 
+# 반복문을 사용했구나?
 for filename in test_files:
     try:
         room_id = filename.split("_")[0]
+        date = filename.split("_")[1]
+        time = filename.split("_")[2].split(".")[0]
         file_path = os.path.join(test_folder, filename)
 
         infer_audio(
             file_path=file_path,
             room_id=room_id,
+            date= date,
+            time = time, 
             panns_model=panns_model,
             classifier_model=classifier_model,  # ← 여기 바뀜!
             label_dict=label_dict,
             device=device
         )
+        
 
     except Exception as e:
         print(f"[ERROR] Failed to process {filename}: {e}")
