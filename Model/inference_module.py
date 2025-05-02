@@ -30,7 +30,7 @@ classifier_model.eval()
 #   이 경우에는 파일을 읽는 방식이 맨 뒷자리 .wav 니까 -> 맨 뒷자리 확장자 바꿔서 못 읽게 
 
 def start_inference_loop(real_time_folder, panns_model, classifier_model, label_dict, device):
-    print("🎧 실시간 추론 시작...")
+    print("실시간 추론 시작...")
 
     while True:
         all_files = [f for f in os.listdir(real_time_folder) if f.endswith(".wav")]
