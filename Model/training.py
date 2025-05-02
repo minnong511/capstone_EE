@@ -31,12 +31,12 @@ model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
 
 # 2. Dataset & Dataloader
 dataset = AudioEmbeddingDataset(root_dir='./Dataset/Dataset', model=model)
-loader = DataLoader(dataset, batch_size=16, shuffle=True)  # 배치 사이즈는 16으로 통일
+loader = DataLoader(dataset, batch_size=4, shuffle=True)  # 배치 사이즈는 16으로 통일
 
 # (선택) 데이터 확인용: 한 번만 출력
 for x, y in loader:
-    print(x.shape)  # torch.Size([16, 1024]) → 열은 임베딩 사이즈
-    print(y.shape)  # torch.Size([16])
+    print(x.shape)  # torch.Size([4, 1024]) → 열은 임베딩 사이즈
+    print(y.shape)  # torch.Size([4])
     break
 
 print(dataset.label_dict)

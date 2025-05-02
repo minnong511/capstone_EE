@@ -47,7 +47,6 @@ classifier_model.load_state_dict(torch.load(classifier_model_path, map_location=
 classifier_model.to(device)
 classifier_model.eval()
 
-device = get_device()
 # 파일 리스트 가져오기
 test_files = [f for f in os.listdir(test_folder) if f.endswith(".wav")]
 

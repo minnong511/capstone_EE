@@ -4,9 +4,10 @@ import torch.optim as optim
 import torchaudio
 import platform
 import os 
+import numpy as np
 
 
-from models import Cnn10  # models.py에서 정의됨
+from Model.models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
 
 #-------------------------------------------------------------------------# 
