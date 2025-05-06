@@ -243,5 +243,5 @@ def infer_audio(file_path, room_id, date, time, panns_model, classifier_model, l
     idx_to_label = {v: k for k, v in label_dict.items()}
     pred_label = idx_to_label[pred_idx]
 
-    print(f"Predicted: {pred_label} | Room {room_id} | Date {date} | time {time}")
-    return {"room_id": room_id, "predicted_class": pred_label}
+    print(f"Predicted: {pred_label} | Room {room_id} | date {date} | time {time}")
+    return {"room_id": room_id, "date" : date,"time" : time ,"category": pred_label}
