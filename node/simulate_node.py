@@ -31,7 +31,7 @@ def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_
         os.makedirs(output_dir)
 
     start_time = time.time()
-    while time.time() - start_time < 10:  # 총 10초만 실행
+    while time.time() - start_time < 100:  # 총 10초만 실행
         src_file = random.choice(file_list)
         # 랜덤으로 방 고르기 ㅋㅋ
         room_id = random.choice(['1', '2', '3'])
@@ -40,7 +40,9 @@ def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_
         date = now.strftime("%Y%m%d")
         time_str = now.strftime("%H%M%S")
 
-        new_filename = f"room{room_id}_{date}_{time_str}.wav"
+        decibel = random.randint(50, 100)  # 50~100dB 사이의 값 임의 생성
+
+        new_filename = f"room{room_id}_{date}_{time_str}_{decibel}.wav"
         dst_path = os.path.join(output_dir, new_filename)
 
         shutil.copy(src_file, dst_path)

@@ -16,6 +16,7 @@ import threading
 from Model.inference_module import start_inference_loop
 # from alert_system.notification import start_alert_checker
 from node.simulate_node import start_node_simulation
+from data_visaualization.dbvisual import start_db_visualization
 
 import os
 import time 
@@ -45,10 +46,6 @@ classifier_model.to(device)
 classifier_model.eval()
 
 
-
-
-
-
 #  threading을 사용하면 병렬로 구현이 가능함. 
 #  node simulator, start_inference_loop, start_alert_checker 가 동시에 돌아가는 기적
 if __name__ == '__main__':
@@ -62,3 +59,6 @@ if __name__ == '__main__':
         target=start_node_simulation,
         name="NodeSimThread"
     ).start()
+
+    # 실시간 시각화는 메인 쓰레드에서 실행해야 한다
+    start_db_visualization()  

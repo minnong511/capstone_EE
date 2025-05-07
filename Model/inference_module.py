@@ -6,6 +6,7 @@ import sqlite3
 import logging
 from torch.utils.data import DataLoader
 from datetime import datetime, timedelta
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Model.base_model_panns import (
     PANNsCNN10,
@@ -16,14 +17,6 @@ from Model.base_model_panns import (
 )
 
 
-device = get_device()
-label_dict = get_label_dict(root_dir='./Dataset/Dataset')
-
-panns_model = PANNsCNN10('./Model/pretrained/Cnn10.pth').to(device)
-classifier_model = TransferClassifier(input_dim=512, num_classes=len(label_dict))
-classifier_model.load_state_dict(torch.load('Model/classifier_model.pth', map_location=device))
-classifier_model.to(device)
-classifier_model.eval()
 
 # real_input으로 추후에 수정해야 하니깐 기억하자!
 # 추론 실시간 처리 고려사항
@@ -42,7 +35,7 @@ classifier_model.eval()
     # 즉 DB에 insert 되어야 함 .
 
 # 전역 DB 설정 (클래스 내부에서 처리)
-conn = sqlite3.connect("inference_results.db", check_same_thread=False) ## check_thread에 대한 내용 필요 
+conn = sqlite3.connect("./DB/inference_results.db", check_same_thread=False) ## check_thread에 대한 내용 필요 
 cursor = conn.cursor()
 
 # 테이블 생성 (초기 1회)
@@ -53,6 +46,7 @@ CREATE TABLE IF NOT EXISTS inference_results (
     date TEXT,
     time TEXT,
     category TEXT,
+    decibel INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
@@ -98,6 +92,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 room_id = parts[0]
                 date = parts[1]
                 time_str = parts[2].split(".")[0]
+                decibel = parts[3].split(".")[0]
 
                 # 3. 추론
                 result = infer_audio(
@@ -105,6 +100,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                     room_id=room_id,
                     date=date,
                     time=time_str,
+                    decibel=decibel, 
                     panns_model=panns_model,
                     classifier_model=classifier_model,
                     label_dict=label_dict,
@@ -114,10 +110,11 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 print(result)
 
                 cursor.execute("""
-                    INSERT INTO inference_results (room_id, date, time, category)
-                    VALUES (?, ?, ?, ?)
-                """, (result["room_id"], result["date"], result["time"], result["category"]))
-                conn.commit()
+                    INSERT INTO inference_results (room_id, date, time, category, decibel)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (result["room_id"], result["date"], result["time"], result["category"], result["decibel"]))
+
+                logging.info("DB 저장 완료")
 
                 os.remove(processing_path)
 

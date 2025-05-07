@@ -1,7 +1,9 @@
-# Seoultech EE 2025 Capstone Design 
+# Seoultech EE 2025 Capstone Design (이민형, 김수왕, 김민지)
 ### 이민형, 김수왕, 김민지 
 
 # Project Description
+
+**Smart Home Assitance System for the Hearing Impaired**
 
 ### 1. Introduction
 1. Background and Motivation  
