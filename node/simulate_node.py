@@ -9,9 +9,16 @@ import random
 import shutil
 import time
 from datetime import datetime
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(threadName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_data/simulator_input', interval_sec=2):
-    print("Node 시뮬레이션 시작...")
+    logging.info("Node 시뮬레이션 시작됨.")
 
     file_list = []
     for class_dir in os.listdir(dataset_root):
@@ -37,8 +44,6 @@ def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_
         dst_path = os.path.join(output_dir, new_filename)
 
         shutil.copy(src_file, dst_path)
-        print(f"전송됨: {new_filename}")
+        logging.info(f"전송됨: {new_filename}")
 
         time.sleep(interval_sec)
-
-start_node_simulation()

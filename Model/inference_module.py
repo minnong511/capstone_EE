@@ -3,6 +3,7 @@ import time
 import sys
 import torch
 import sqlite3
+import logging
 from torch.utils.data import DataLoader
 from datetime import datetime, timedelta
 
@@ -77,7 +78,7 @@ def periodic_maintenance():
 
 
 def start_inference_loop(real_time_folder, panns_model, classifier_model, label_dict, device):
-    print("실시간 추론 시작...")
+    logging.info("실시간 추론 루프 시작됨.")
 
     last_cleanup_time = datetime.now()
 
@@ -87,6 +88,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
         for filename in all_files:
             try:
                 # 1. 파일명 확장 변경해서 중복 방지
+                logging.info(f"파일 감지됨: {filename}")
                 original_path = os.path.join(real_time_folder, filename)
                 processing_path = original_path + ".processing"
                 os.rename(original_path, processing_path)
@@ -108,6 +110,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                     label_dict=label_dict,
                     device=device
                 )
+                logging.info(f"추론 완료: {filename}")
                 print(result)
 
                 cursor.execute("""
