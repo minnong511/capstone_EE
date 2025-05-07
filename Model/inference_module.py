@@ -82,7 +82,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
         for filename in all_files:
             try:
                 # 1. 파일명 확장 변경해서 중복 방지
-                logging.info(f"파일 감지됨: {filename}")
+                #logging.info(f"파일 감지됨: {filename}")
                 original_path = os.path.join(real_time_folder, filename)
                 processing_path = original_path + ".processing"
                 os.rename(original_path, processing_path)
@@ -106,15 +106,15 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                     label_dict=label_dict,
                     device=device
                 )
-                logging.info(f"추론 완료: {filename}")
-                print(result)
+                #logging.info(f"추론 완료: {filename}")
 
                 cursor.execute("""
                     INSERT INTO inference_results (room_id, date, time, category, decibel)
                     VALUES (?, ?, ?, ?, ?)
                 """, (result["room_id"], result["date"], result["time"], result["category"], result["decibel"]))
 
-                logging.info("DB 저장 완료")
+                conn.commit()
+                #logging.info("DB 저장 완료")
 
                 os.remove(processing_path)
 

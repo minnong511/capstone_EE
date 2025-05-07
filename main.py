@@ -14,9 +14,9 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import threading
 from Model.inference_module import start_inference_loop
-# from alert_system.notification import start_alert_checker
 from node.simulate_node import start_node_simulation
 from data_visaualization.dbvisual import start_db_visualization
+from alert_system.notification import start_alert_checker
 
 import os
 import time 
@@ -58,6 +58,11 @@ if __name__ == '__main__':
     threading.Thread(
         target=start_node_simulation,
         name="NodeSimThread"
+    ).start()
+
+    threading.Thread(
+        target=start_alert_checker,
+        name="AlertThread"
     ).start()
 
     # 실시간 시각화는 메인 쓰레드에서 실행해야 한다

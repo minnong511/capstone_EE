@@ -46,6 +46,6 @@ def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_
         dst_path = os.path.join(output_dir, new_filename)
 
         shutil.copy(src_file, dst_path)
-        logging.info(f"전송됨: {new_filename}")
+        #logging.info(f"전송됨: {new_filename}")
 
         time.sleep(interval_sec)
