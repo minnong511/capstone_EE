@@ -31,7 +31,7 @@ model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
 
 # 2. Dataset & Dataloader
 dataset = AudioEmbeddingDataset(root_dir='./Dataset/Dataset', model=model)
-loader = DataLoader(dataset, batch_size=4, shuffle=True)  # 배치 사이즈는 16으로 통일
+loader = DataLoader(dataset, batch_size=10, shuffle=True)  # 배치 사이즈는 16으로 통일
 
 # (선택) 데이터 확인용: 한 번만 출력
 for x, y in loader:
@@ -45,4 +45,4 @@ print(dataset.label_dict)
 classifier = TransferClassifier(input_dim=512, num_classes=len(dataset.label_dict))
 
 # 4. 전이 학습 수행
-train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=10)
+train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=40)

@@ -164,10 +164,12 @@ class AudioEmbeddingDataset(Dataset):
 # 학습 루프 구성 
 # 클래스는 몇 개로 분류?? 
 
+label_dict = get_label_dict(root_dir='./Dataset/Dataset')
+
 class TransferClassifier(nn.Module):
     # input_dim은 CNN10 = 1024, CNN6 = 512 
     # 분류해야 할 클래스는 15개 
-    def __init__(self,input_dim = 1024, num_classes = 15): 
+    def __init__(self,input_dim = 1024, num_classes = label_dict): 
         super().__init__() 
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, 256),
