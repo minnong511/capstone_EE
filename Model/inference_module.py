@@ -52,24 +52,6 @@ CREATE TABLE IF NOT EXISTS inference_results (
 """)
 conn.commit()
 
-def periodic_maintenance():
-    # 오래된 데이터 삭제
-    cursor.execute("""
-        DELETE FROM inference_results
-        WHERE created_at < datetime('now', '-30 days')
-    """)
-    
-    # 최대 10,000개 이상이면 오래된 것 삭제
-    cursor.execute("""
-        DELETE FROM inference_results
-        WHERE id NOT IN (
-            SELECT id FROM inference_results
-            ORDER BY created_at DESC
-            LIMIT 10000
-        )
-    """)
-    conn.commit()
-
 
 def start_inference_loop(real_time_folder, panns_model, classifier_model, label_dict, device):
     logging.info("실시간 추론 루프 시작됨.")
@@ -121,10 +103,5 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
 
             except Exception as e:
                 print(f"[ERROR] {filename}: {e}")
-
-        if datetime.now() - last_cleanup_time > timedelta(days=1):
-            print("[Maintenance] Running periodic cleanup...")
-            periodic_maintenance()
-            last_cleanup_time = datetime.now()
 
         time.sleep(5)

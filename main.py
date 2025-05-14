@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import threading
 from Model.inference_module import start_inference_loop
 from node.simulate_node import start_node_simulation
-from data_visaualization.dbvisual import start_db_visualization
+from data_visaualization.dbvisual_module import start_db_visualization
 from alert_system.notification import start_alert_checker
 
 import os

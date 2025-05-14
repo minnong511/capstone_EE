@@ -16,14 +16,16 @@
 3. Comparison with Similar Research  
 
 ### 3. System Design
+- 5월 4주차 개발 진행 예정 
 1. Hardware Architecture  
 2. Hardware Configuration  
 3. Central Hub and Server Design  
 4. Communication Protocols  
 
 ### 4. Sound Classification
+- 4월 4주차, 5월 1주차 개발 완료 
 1. Dataset Collection and Preprocessing  
-    - 진행중 
+    - 개발 완료 
 2. PANNs Model and Transfer Learning  
     - 개발 완료 
 3. Class Definitions and Label Mapping
@@ -32,11 +34,14 @@
     - 개발 완료 
 
 ### 5. Alert Management System
-1. Mapping Sound Classes to Alert Priorities  
+- 5월 2주차 개발 완료 
+1. Mapping Sound Classes to Alert Priorities 
+    - 개발 완료
 2. Personalized Notifications (Vibration, Visuals, Logging)  
-3. Rule-Based vs. Machine Learning-Based Priority Classifier  
+    - 개발 완료 
 
-### 6. Implementation
+### 6. Implementation 
+- 5월 3주차 개발 진행 중
 1. Data Flow and System Workflow  
 2. Integration of ESP32 and Server  
 3. Implementation Images and Descriptions  

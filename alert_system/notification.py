@@ -5,6 +5,39 @@ import time
 import logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(threadName)s] %(message)s')
 
+def save_alert_to_db(alert, db_path="./DB/alerts.db"):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Create table if it doesn't exist
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            room_id TEXT NOT NULL,
+            category TEXT NOT NULL,
+            decibel REAL,
+            priority INTEGER,
+            original_type TEXT,
+            processed INTEGER DEFAULT 0
+        )
+    """)
+
+    cursor.execute("""
+        INSERT INTO alerts (created_at, room_id, category, decibel, priority, original_type)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        alert['time'].strftime('%Y-%m-%d %H:%M:%S'),
+        alert['mic'],
+        alert['type'],
+        alert['decibel'],
+        alert['priority'],
+        alert['original_type']
+    ))
+
+    conn.commit()
+    conn.close()
+
 # 중요도 테이블 정의
 priority_table = {
     'fire alarm': 1,
@@ -101,7 +134,7 @@ def select_event_from_group(items):
     return selected
 
 
-def process_data(db_path, last_processed_time):
+def process_data(db_path, last_processed_time, cooldown_tracker):
     data, now = load_recent_events(db_path, last_processed_time)
 
     # Step 1: Group by room (mic)
@@ -110,14 +143,11 @@ def process_data(db_path, last_processed_time):
         room_groups[item['mic']].append(item)
 
     alerts_to_send = []
-    # cooldown_tracker is persistent only for this function call; for global cooldown, use a persistent store
-    cooldown_tracker = {}  # {(mic, type): last_alert_time}
 
     for room, events in room_groups.items():
-        # Step 2: Select highest priority event in this room
         top_event = sorted(events, key=lambda x: x['priority'])[0]
         key = (top_event['mic'], top_event['type'])
-        # Step 3: Check cooldown (10 sec)
+        # cooldown 확인 (10 sec)
         if key not in cooldown_tracker or (now - cooldown_tracker[key]).total_seconds() > 10:
             alerts_to_send.append(top_event)
             cooldown_tracker[key] = now
@@ -125,15 +155,60 @@ def process_data(db_path, last_processed_time):
     for alert in alerts_to_send:
         logging.info(f"{alert['type']} 소리가 {alert['mic']}에서 발생했습니다.")
         logging.info(f"선택된 소리: {alert['type']}, 마이크: {alert['mic']}, 우선순위: {alert['priority']}")
+        save_alert_to_db(alert)
 
     return now  # 최근 처리 시간 반환
 
 def start_alert_checker(db_path="./DB/inference_results.db"):
     last_time = datetime.now() - timedelta(seconds=5)
+    cooldown_tracker = {}
+    iteration_count = 0  # Add this line
 
     try:
         while True:
-            last_time = process_data(db_path, last_time)
+            last_time = process_data(db_path, last_time, cooldown_tracker)
             time.sleep(1)
+            iteration_count += 1
+
+            if iteration_count % 60 == 0:  # every 60 seconds
+                # inference_results 유지
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    DELETE FROM inference_results
+                    WHERE id NOT IN (
+                        SELECT id FROM inference_results
+                        ORDER BY created_at DESC
+                        LIMIT 1000
+                    )
+                """)
+                conn.commit()
+                conn.close()
+
+                # alerts 유지
+                alerts_conn = sqlite3.connect("./DB/alerts.db")
+                alerts_cursor = alerts_conn.cursor()
+                alerts_cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS alerts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        created_at TEXT NOT NULL,
+                        room_id TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        decibel REAL,
+                        priority INTEGER,
+                        original_type TEXT,
+                        processed INTEGER DEFAULT 0
+                    )
+                """)
+                alerts_cursor.execute("""
+                    DELETE FROM alerts
+                    WHERE id NOT IN (
+                        SELECT id FROM alerts
+                        ORDER BY created_at DESC
+                        LIMIT 300
+                    )
+                """)
+                alerts_conn.commit()
+                alerts_conn.close()
     except KeyboardInterrupt:
         logging.info("중지되었습니다.")
