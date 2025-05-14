@@ -108,10 +108,11 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 )
                 #logging.info(f"추론 완료: {filename}")
 
+                created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cursor.execute("""
-                    INSERT INTO inference_results (room_id, date, time, category, decibel)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (result["room_id"], result["date"], result["time"], result["category"], result["decibel"]))
+                    INSERT INTO inference_results (room_id, date, time, category, decibel, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (result["room_id"], result["date"], result["time"], result["category"], result["decibel"], created_at))
 
                 conn.commit()
                 #logging.info("DB 저장 완료")

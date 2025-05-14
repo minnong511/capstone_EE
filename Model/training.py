@@ -31,12 +31,12 @@ model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
 
 # 2. Dataset & Dataloader
 dataset = AudioEmbeddingDataset(root_dir='./Dataset/Dataset', model=model)
-loader = DataLoader(dataset, batch_size=10, shuffle=True)  # 배치 사이즈는 16으로 통일
+loader = DataLoader(dataset, batch_size=16, shuffle=True)  # 배치 사이즈는 16으로 통일
 
 # (선택) 데이터 확인용: 한 번만 출력
 for x, y in loader:
-    print(x.shape)  # torch.Size([4, 1024]) → 열은 임베딩 사이즈
-    print(y.shape)  # torch.Size([4])
+    print(x.shape)  # torch.Size([16, 512]) → 열은 임베딩 사이즈
+    print(y.shape)  # torch.Size([16]) -> dimension은 알아서 잘 체크하자
     break
 
 print(dataset.label_dict)
@@ -45,4 +45,4 @@ print(dataset.label_dict)
 classifier = TransferClassifier(input_dim=512, num_classes=len(dataset.label_dict))
 
 # 4. 전이 학습 수행
-train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=40)
+train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=20)

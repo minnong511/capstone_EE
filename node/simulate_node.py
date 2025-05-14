@@ -6,6 +6,7 @@
 
 import os
 import random
+import pytz
 import shutil
 import time
 from datetime import datetime
@@ -36,7 +37,9 @@ def start_node_simulation(dataset_root='./Dataset/Dataset', output_dir='./Input_
         # 랜덤으로 방 고르기 ㅋㅋ
         room_id = random.choice(['1', '2', '3'])
 
-        now = datetime.now()
+        now = datetime.now(pytz.timezone('Asia/Seoul'))
+        logging.info(f"현재 시각 (시뮬레이터 기준): {now.strftime('%Y-%m-%d %H:%M:%S')}")
+
         date = now.strftime("%Y%m%d")
         time_str = now.strftime("%H%M%S")
 
