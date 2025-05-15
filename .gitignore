@@ -7,4 +7,5 @@ Infer_Test_Dataset
 Dataset/Dataset/.DS_Store
 .DS_Store
 Input_data
-DB
+DB/alerts.db 
+DB/inference_results.db 
