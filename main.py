@@ -1,8 +1,5 @@
-# 로그 확인 기능 
-
 import logging
 
-# 로그 기본 설정
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] [%(threadName)s] %(message)s',
