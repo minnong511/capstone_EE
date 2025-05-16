@@ -14,6 +14,7 @@ from Model.inference_module import start_inference_loop
 from node.simulate_node import start_node_simulation
 from data_visaualization.dbvisual_module import start_db_visualization
 from alert_system.notification import start_alert_checker
+from node.node import run_listener_for_all
 
 import os
 import time 
@@ -44,7 +45,8 @@ classifier_model.eval()
 
 
 #  threading을 사용하면 병렬로 구현이 가능함. 
-#  node simulator, start_inference_loop, start_alert_checker 가 동시에 돌아가는 기적
+#  node simulator, start_inference_loop, start_alert_checker 가 동시에 돌아간다 
+
 if __name__ == '__main__':
     threading.Thread(
     target=start_inference_loop,
@@ -56,6 +58,11 @@ if __name__ == '__main__':
         target=start_node_simulation,
         name="NodeSimThread"
     ).start()
+
+    #threading.Thread(
+    #    target=run_listener_for_all,
+    #    name="NodeSimThread" 
+    #).start()
 
     threading.Thread(
         target=start_alert_checker,
