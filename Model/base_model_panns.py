@@ -5,10 +5,14 @@ import torchaudio
 import platform
 import os 
 import numpy as np
+import seaborn as sns
+import pandas as pd
 
 
 from Model.models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 #-------------------------------------------------------------------------# 
 
@@ -216,6 +220,40 @@ def train_classifier(classifier, dataloader, num_classes, epochs=10, save_path='
 
     torch.save(classifier.state_dict(), save_path)
     print(f"Classifier model saved to {save_path}")
+
+
+# ---------------------- Confusion Matrix Evaluation ---------------------- #
+def evaluate_classifier(classifier, dataloader, label_dict , device):
+    classifier = classifier.to(device)
+    classifier.eval()
+
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        for x, y in dataloader:
+            x, y = x.to(device), y.to(device)
+            logits = classifier(x)
+            preds = torch.argmax(logits, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(y.cpu().numpy())
+
+    label_names = [k for k, _ in sorted(label_dict.items(), key=lambda x: x[1])]
+    labels = list(range(len(label_names)))
+    cm = confusion_matrix(all_labels, all_preds, labels=labels, normalize='true')
+    cm_df = pd.DataFrame(cm, index=label_names, columns=label_names)
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm_df, annot=True, fmt=".2f", cmap="Blues", square=True, cbar=True,
+                xticklabels=label_names, yticklabels=label_names)
+
+    plt.title("Confusion Matrix for Sound classification", fontsize=14)
+    plt.xlabel("Predicted label", fontsize=12)
+    plt.ylabel("True label", fontsize=12)
+    plt.xticks(rotation=90)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.show()
 
 #------------------------ 4월 15일 개발 ---------------------# 
 # --- 오디오 추론 --- # 

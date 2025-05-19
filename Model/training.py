@@ -9,7 +9,8 @@ from Model.base_model_panns import (
     TransferClassifier,
     train_classifier,
     infer_audio,
-    get_device
+    get_device,
+    evaluate_classifier
 )
 
 import torch 
@@ -41,8 +42,12 @@ for x, y in loader:
 
 print(dataset.label_dict)
 
-# 3. 분류기 정의
+# 3. 분류기 정의 및 가중치 로드
 classifier = TransferClassifier(input_dim=512, num_classes=len(dataset.label_dict))
+classifier.load_state_dict(torch.load('Model/classifier_model.pth', map_location=device))
 
 # 4. 전이 학습 수행
-train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=20)
+#train_classifier(classifier, loader, num_classes=len(dataset.label_dict), epochs=5)
+
+# 5. confusion matrix 확인
+evaluate_classifier(classifier,loader,dataset.label_dict,device=device)
