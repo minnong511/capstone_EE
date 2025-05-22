@@ -17,14 +17,18 @@ logging.basicConfig(
 label_dict = get_label_dict(root_dir='./Dataset/Dataset')
 categories = sorted(label_dict.keys())
 
+all_room_ids = []
+
 def fetch_room_data():
-    # 최근 100개의 알림에서 room_id만 추출
-    conn = sqlite3.connect('./DB/alerts.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT room_id FROM alerts ORDER BY id DESC LIMIT 100")
-    results = cursor.fetchall()
-    conn.close()
-    return [r[0] for r in results]
+    global all_room_ids
+    if not all_room_ids:
+        conn = sqlite3.connect('./DB/alerts.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT room_id FROM alerts ORDER BY id DESC LIMIT 100")
+        results = cursor.fetchall()
+        conn.close()
+        all_room_ids = sorted(set(r[0] for r in results))
+    return all_room_ids
 
 import numpy as np
 from datetime import datetime, timedelta
@@ -42,7 +46,7 @@ def update_heatmap(i, ax):
         ax.set_title("No recent alerts (last 30 seconds)")
         return
 
-    room_ids = sorted(set(r[0] for r in results))
+    room_ids = fetch_room_data()
 
     room_index = {room: idx for idx, room in enumerate(room_ids)}
     category_index = {cat: idx for idx, cat in enumerate(categories)}
