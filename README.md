@@ -41,17 +41,24 @@
     - 개발 완료 
 
 ### 6. Implementation 
-- 5월 3주차 개발 진행 중
+- Now Developing 
 1. Data Flow and System Workflow  
 2. Integration of ESP32 and Server  
 3. Implementation Images and Descriptions  
 
-### 7. Evaluation
+### 7. Web Page 
+1. Backend
+2. DB system integration
+3. Frontend 
+
+----------------------- 2025 Q3,Q4 --------------------------
+
+### 8. Evaluation
 1. Classification Accuracy and Model Performance  
 2. Real-World Testing Results  
 3. User Feedback (Optional)  
 
-### 8. Conclusion
+### 9. Conclusion
 1. Summary and Achievements  
 2. Limitations and Challenges  
 3. Future Work and Improvements  
