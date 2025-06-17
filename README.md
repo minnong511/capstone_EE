@@ -7,8 +7,11 @@
 
 ### 1. Introduction
 1. Background and Motivation  
+    - 
 2. Project Objectives  
+    - 
 3. System Overview  
+    - 
 
 ### 2. Related Work
 1. Existing Sound Recognition Systems  
@@ -16,7 +19,7 @@
 3. Comparison with Similar Research  
 
 ### 3. System Design
-- 5월 4주차 개발 진행 예정 
+- 6월 4주차 개발 진행 예정
 1. Hardware Architecture  
 2. Hardware Configuration  
 3. Central Hub and Server Design  
@@ -41,20 +44,27 @@
     - 개발 완료 
 
 ### 6. Implementation 
-- Now Developing 
-1. Data Flow and System Workflow  
+1. Data Flow and System Workflow 
+    - 개발완료 
 2. Integration of ESP32 and Server  
+    - 현재 개발 중
 3. Implementation Images and Descriptions  
+    - 현재 개발 중 
 
 ### 7. Web Page 
 1. Backend
+    - 현재 개발 중 
+    - Flask
 2. DB system integration
-3. Frontend 
+    - 현재 개발 중 
+3. Frontend
+    - 현재 개발 중 
 
 ----------------------- 2025 Q3,Q4 --------------------------
 
 ### 8. Evaluation
 1. Classification Accuracy and Model Performance  
+    - 모의 테스트 진행 완료, 정확도 98% 
 2. Real-World Testing Results  
 3. User Feedback (Optional)  
 
