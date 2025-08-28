@@ -77,7 +77,7 @@ from data_visaualization.dbvisual_module import start_db_visualization  # 시각
 # node.node_BLE.run_listener_for_all(real_time_folder: str) → None
 #  - 내부에서 무한루프를 돌며 BLE 연결/재시도/수신파일 저장을 처리(반환하지 않는 것이 정상)
 #  - 테스트 모드에서는 한 번만 실행하도록 구현할 수도 있음
-from node.node_BLE import run_listener_for_all                     # BLE 수신 루프 진입점
+from node.node_wifi import run_listener_for_all                     # BLE 수신 루프 진입점
 
 # -------- 모델 관련 유틸/클래스 임포트 ---------------------------------------
 from Model.base_model_panns import (

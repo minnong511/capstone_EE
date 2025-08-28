@@ -67,6 +67,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
+import os
+import argparse
 
 from bleak import BleakScanner, BleakClient, BLEDevice
 
@@ -85,6 +87,23 @@ CHAR_FILE_DATA_UUID = "12345678-1234-5678-1234-56789abcdef3"
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_TARGET_DIR = ROOT_DIR / "Input_data" / "real_input"
 DEFAULT_TARGET_DIR.mkdir(parents=True, exist_ok=True)
+
+# -------------------------
+# Configuration (tunable)
+# -------------------------
+# 시간 파라미터(초) — 하드코딩된 상수 대신 사용
+SCAN_TIMEOUT_S: float = float(os.getenv("BLE_SCAN_TIMEOUT_S", 5.0))
+RESCAN_DELAY_S: float = float(os.getenv("BLE_RESCAN_DELAY_S", 3.0))
+RECONNECT_DELAY_S: float = float(os.getenv("BLE_RECONNECT_DELAY_S", 3.0))
+
+def parse_device_names(default: List[str]) -> List[str]:
+    """환경변수 BLE_DEVICE_NAMES(쉼표 구분) 또는 기본값을 사용해 디바이스 명단 생성."""
+    env = os.getenv("BLE_DEVICE_NAMES", "").strip()
+    if not env:
+        return default
+    # 공백 제거 + 빈 항목 제거
+    names = [x.strip() for x in env.split(",") if x.strip()]
+    return names if names else default
 
 # -------------------------
 # 파일 수신 상태기
@@ -110,6 +129,7 @@ class FileReceiver:
     - 시퀀스 번호가 건너뛰면 경고를 출력하지만, 가능한 한 수신을 계속합니다.
     - META가 동일 id로 중복 수신되면 무시하여 중복 저장을 방지합니다.
     - expected_size가 제공되면 저장 후 바이트 수를 검사합니다(로그 경고용).
+    - 저장은 임시 확장자(.part)로 작성 후 원자적(rename)으로 교체하여 부분 파일 노출을 방지합니다.
     """
     def __init__(self, sensor_name: str, save_dir: Path):
         self.sensor_name = sensor_name
@@ -185,11 +205,20 @@ class FileReceiver:
         """누적 버퍼를 .wav 파일로 저장하고 내부 상태를 초기화한다."""
         # 파일명 규칙: <센서명>_YYYYMMDD-HHMMSS.wav
         #   - 센서별/시간별 파일을 쉽게 구분 가능
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f"{self.sensor_name}_{ts}.wav"
+        now = datetime.now()
+        ts = now.strftime("%Y%m%d-%H%M%S") + f"-{now.microsecond:06d}"
+        id_suffix = f"_{self.current_id}" if self.current_id is not None else ""
+        filename = f"{self.sensor_name}{id_suffix}_{ts}.wav"
         path = self.save_dir / filename
-        with open(path, "wb") as f:
+        tmp_path = path.with_suffix(path.suffix + ".part")
+        # 임시 파일로 먼저 기록 후 원자적으로 교체
+        with open(tmp_path, "wb") as f:
             f.write(self.buffer)
+        try:
+            tmp_path.replace(path)
+        except Exception:
+            # 일부 파일시스템에서는 replace가 원자적이지 않을 수 있어 fallback
+            os.replace(tmp_path, path)
 
         # 크기 검증: META.size가 제공되면 경고 수준으로만 비교
         if self.expected_size and len(self.buffer) != self.expected_size:
@@ -229,7 +258,7 @@ async def device_worker(device_name: str, save_dir: Path):
         try:
             print(f"[{device_name}] Scanning for device...")
             dev: Optional[BLEDevice] = None
-            devices = await BleakScanner.discover(timeout=5.0)
+            devices = await BleakScanner.discover(timeout=SCAN_TIMEOUT_S)
             for d in devices:
                 if d.name == device_name:
                     dev = d
@@ -237,7 +266,7 @@ async def device_worker(device_name: str, save_dir: Path):
 
             if not dev:
                 print(f"[{device_name}] Not found. Retry in 3s...")
-                await asyncio.sleep(3.0)
+                await asyncio.sleep(RESCAN_DELAY_S)
                 continue
 
             print(f"[{device_name}] Found {dev.address}. Connecting...")
@@ -282,7 +311,7 @@ async def device_worker(device_name: str, save_dir: Path):
 
         except Exception as e:
             print(f"[{device_name}] Error: {e}. Reconnecting in 3s...")
-            await asyncio.sleep(3.0)
+            await asyncio.sleep(RECONNECT_DELAY_S)
             continue
 
 # -------------------------
@@ -291,7 +320,7 @@ async def device_worker(device_name: str, save_dir: Path):
 async def run_ble_receiver(device_names: Optional[List[str]] = None, save_dir: Optional[Path] = None):
     """여러 디바이스 워커를 동시 실행하는 메인 async 함수."""
     # 이름 리스트에 대해 worker 태스크를 생성하고 gather로 영구 대기
-    names = device_names or DEFAULT_DEVICE_NAMES
+    names = device_names or parse_device_names(DEFAULT_DEVICE_NAMES)
     out_dir = save_dir or DEFAULT_TARGET_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -316,6 +345,8 @@ def run_listener_for_all(real_time_folder: str = None):
     # Windows에서 Bleak 이벤트루프 정책이 필요할 수 있어 선설정
     # run_ble_receiver를 동기적으로 실행
     save_dir = Path(real_time_folder) if real_time_folder else DEFAULT_TARGET_DIR
+    device_names = parse_device_names(DEFAULT_DEVICE_NAMES)
+    print("[PC] Device list:", ", ".join(device_names))
     # Windows 환경에서 asyncio 루프 정책 설정(필요 시)
     if sys.platform.startswith("win"):
         try:
@@ -323,18 +354,35 @@ def run_listener_for_all(real_time_folder: str = None):
         except Exception:
             pass
     # 동기 진입
-    asyncio.run(run_ble_receiver(device_names=None, save_dir=save_dir))
+    asyncio.run(run_ble_receiver(device_names=device_names, save_dir=save_dir))
 
 def start_ble_receiver(device_names: Optional[List[str]] = None, save_dir: Optional[Path] = None):
     """동기 컨텍스트에서 BLE 수신기를 즉시 실행하는 편의 함수."""
     asyncio.run(run_ble_receiver(device_names, save_dir))
 
 if __name__ == "__main__":
-    # 스크립트를 직접 실행했을 때 기본 저장 경로를 안내하고 즉시 시작
     if sys.platform.startswith("win"):
         try:
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         except Exception:
             pass
-    print("[PC] Target save dir:", DEFAULT_TARGET_DIR)
-    start_ble_receiver()
+
+    parser = argparse.ArgumentParser(description="BLE multi-device WAV receiver")
+    parser.add_argument("--devices", type=str, default=os.getenv("BLE_DEVICE_NAMES", ""),
+                        help="Comma-separated device names (overrides env BLE_DEVICE_NAMES).")
+    parser.add_argument("--out", type=str, default=str(DEFAULT_TARGET_DIR),
+                        help="Output directory for received WAV files.")
+    args = parser.parse_args()
+
+    # 디바이스 해석 우선순위: --devices CLI > BLE_DEVICE_NAMES env > DEFAULT_DEVICE_NAMES
+    if args.devices.strip():
+        names = [x.strip() for x in args.devices.split(",") if x.strip()]
+    else:
+        names = parse_device_names(DEFAULT_DEVICE_NAMES)
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print("[PC] Target save dir:", out_dir)
+    print("[PC] Device list:", ", ".join(names))
+    start_ble_receiver(device_names=names, save_dir=out_dir)
