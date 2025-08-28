@@ -17,8 +17,8 @@ extern "C" {
 #define DEVICE_NAME "Sensor-01"
 
 // ★★★ TODO: 네트워크 환경 맞게 수정 ★★★
-static const char* WIFI_SSID = "YOUR-SSID";
-static const char* WIFI_PASS = "YOUR-PASS";
+static const char* WIFI_SSID = "minnong";
+static const char* WIFI_PASS = "";
 
 // 서버 업로드 엔드포인트 (Flask 예시: http://<server-ip>:5050/upload)
 static const char* UPLOAD_URL = "http://192.168.0.10:5050/upload";
