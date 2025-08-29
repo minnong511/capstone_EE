@@ -88,12 +88,12 @@ Finally, only meaningful notifications—containing event type and location—ar
 
 ### 7. Web Page 
 1. Backend
-    - 현재 개발 중 
+    - 개발 완료 
     - Flask
 2. DB system integration
-    - 현재 개발 중 
+    - 개발 완료 
 3. Frontend
-    - 현재 개발 중 
+    - 개발 완료 
 
 ----------------------- 2025 Q3,Q4 --------------------------
 
@@ -107,3 +107,14 @@ Finally, only meaningful notifications—containing event type and location—ar
 1. Summary and Achievements  
 2. Limitations and Challenges  
 3. Future Work and Improvements  
+
+```plaintext
+capstone_EE/
+├─ server.py          # Flask 업로드 수신 전용 (메인 프로세스)
+├─ worker.py          # 추론 + 알림 전용 (백그라운드 스레드 포함)
+├─ main.py            # (선택) 기존 파일은 보관만 하거나 사용 중단
+├─ node/
+│  └─ node_wifi.py    # 이미 있는 Flask 수신기 모듈
+└─ Input_data/
+   └─ real_input/     # 업로드 저장 폴더 (서버·워커 공용)
+```

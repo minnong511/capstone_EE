@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import threading
 from Model.inference_module import start_inference_loop
 from alert_system.notification import start_alert_checker
-from node.node import run_listener_for_all
+from node.node_wifi import run_listener_for_all
 
 import os
 import time
@@ -39,7 +39,7 @@ from Model.base_model_panns import (
 
 device = get_device()
 label_dict = get_label_dict(root_dir='./Dataset/Dataset')
-real_time_folder = "./Input_data/simulator_input"
+real_time_folder = "./Input_data/real_input"
 
 panns_model = PANNsCNN10('./Model/pretrained/Cnn10.pth').to(device)
 classifier_model = TransferClassifier(input_dim=512, num_classes=len(label_dict))
@@ -195,10 +195,8 @@ if __name__ == '__main__':
     #     name="NodeSimThread"
     # ).start()
 
-    threading.Thread(
-        target=run_listener_for_all,
-        name="BLEListenerThread"
-    ).start()
+    # Run Flask HTTP receiver in the main thread (blocking)
+    run_listener_for_all(real_time_folder=real_time_folder, host="0.0.0.0", port=5050)
 
     threading.Thread(
         target=start_alert_checker,
@@ -213,6 +211,3 @@ if __name__ == '__main__':
 
     # [DISABLED] Real-time visualization will be handled by the Android app; keep main thread free.
     # start_db_visualization()
-    # Keep the main thread alive to allow background threads to run
-    while True:
-        time.sleep(10)
