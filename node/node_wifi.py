@@ -132,10 +132,10 @@ def create_app(save_dir: Path) -> Flask:
         # --- 3) 안전한 파일명 생성 -----------------------------------------
         #  - MicID/RoomID 는 영숫자/하이픈/언더스코어만 허용하여 경로침투 방지
         #  - 마이크로초 단위까지 포함해 충돌 확률 최소화
-        ts_str = ts_dt.strftime("%Y%m%d-%H%M%S") + f"-{ts_dt.microsecond:06d}"
+        ts_str = ts_dt.strftime("%Y%m%d-%H%M%S")
         safe_room = "".join(c for c in room if c.isalnum() or c in ("-", "_"))
         safe_mic  = "".join(c for c in mic  if c.isalnum() or c in ("-", "_"))
-        fname = f"{safe_mic}_{safe_room}_{ts_str}.wav"
+        fname = f"{ts_str}_{safe_mic}_{safe_room}.wav"
         out_path = save_dir / fname
         tmp_path = out_path.with_suffix(out_path.suffix + ".part")
 

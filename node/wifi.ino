@@ -14,14 +14,14 @@ extern "C" {
 }
 
 // ---------------- Device / Network Config ----------------
-#define DEVICE_NAME "Sensor-01"
+#define DEVICE_NAME "Sensor-03"
 
 // ★★★ TODO: 네트워크 환경 맞게 수정 ★★★
 static const char* WIFI_SSID = "minnong";
 static const char* WIFI_PASS = "";
 
 // 서버 업로드 엔드포인트 (Flask 예시: http://<server-ip>:5050/upload)
-static const char* UPLOAD_URL = "http://192.168.0.10:5050/upload";
+static const char* UPLOAD_URL = "http://192.168.0.4:5050/upload";
 
 // NTP로 시간 동기화(파일명 타임스탬프 안정)
 static const char* NTP_POOL = "pool.ntp.org";
@@ -206,7 +206,7 @@ static uint32_t nowEpoch() {
   return (uint32_t)now;
 }
 
-static bool httpUploadWav(const uint8_t* wav, size_t totalSize) {
+static bool httpUploadWav(uint8_t* wav, size_t totalSize) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[HTTP] Wi-Fi not connected; abort upload");
     return false;
