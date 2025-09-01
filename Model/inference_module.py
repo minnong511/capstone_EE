@@ -6,6 +6,13 @@ import sqlite3
 import logging
 from torch.utils.data import DataLoader
 from datetime import datetime, timedelta
+import numpy as np
+try:
+    import soundfile as sf
+    _HAVE_SF = True
+except Exception:
+    _HAVE_SF = False
+    import wave
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Model.base_model_panns import (
@@ -38,6 +45,7 @@ from Model.base_model_panns import (
 conn = sqlite3.connect("./DB/inference_results.db", check_same_thread=False) ## check_thread에 대한 내용 필요 
 cursor = conn.cursor()
 
+
 # 테이블 생성 (초기 1회)
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inference_results (
@@ -51,6 +59,34 @@ CREATE TABLE IF NOT EXISTS inference_results (
 )
 """)
 conn.commit()
+
+
+# Helper: compute dBFS from audio file path
+def _compute_dbfs(file_path: str) -> int:
+    """Compute RMS dBFS from audio file. Returns integer dBFS for DB storage."""
+    try:
+        if _HAVE_SF:
+            data, fs = sf.read(file_path, always_2d=True)
+            x = data.mean(axis=1).astype('float32')
+        else:
+            with wave.open(file_path, 'rb') as w:
+                fs = w.getframerate()
+                n = w.getnframes()
+                raw = w.readframes(n)
+                ch = w.getnchannels()
+            import numpy as _np
+            x = _np.frombuffer(raw, dtype=_np.int16).astype('float32') / 32768.0
+            if ch > 1:
+                x = x.reshape(-1, ch).mean(axis=1)
+        # zero-mean
+        if x.size:
+            x = x - float(x.mean())
+        rms = float(np.sqrt((x * x).mean() + 1e-12))
+        dbfs = 20.0 * np.log10(rms + 1e-12)
+        return int(round(dbfs))
+    except Exception:
+        # On failure, return a sentinel low value
+        return -120
 
 
 def start_inference_loop(real_time_folder, panns_model, classifier_model, label_dict, device):
@@ -69,12 +105,21 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 processing_path = original_path + ".processing"
                 os.rename(original_path, processing_path)
                 
-                # 2. 메타정보 추출
+                # 2. 메타정보 추출 (새 규칙: 19700101-090015_Sensor-03_Room102.wav)
+                #   parts = [ '19700101-090015', 'Sensor-03', 'Room102.wav' ]
                 parts = filename.split("_")
-                room_id = parts[0]
-                date = parts[1]
-                time_str = parts[2].split(".")[0]
-                decibel = parts[3].split(".")[0]
+                if len(parts) < 3:
+                    raise ValueError(f"unexpected filename format: {filename}")
+                date_time = parts[0]                 # '19700101-090015'
+                sensor_id = parts[1]                 # 'Sensor-03' (현재 DB에는 저장하지 않음)
+                room_id = parts[2].rsplit('.', 1)[0] # 'Room102'
+
+                if '-' not in date_time:
+                    raise ValueError(f"unexpected date-time token: {date_time}")
+                date, time_str = date_time.split('-')
+
+                # 파일 내용으로 dBFS 계산 (이전처럼 파일명에서 읽지 않음)
+                decibel = _compute_dbfs(processing_path)
 
                 # 3. 추론
                 result = infer_audio(

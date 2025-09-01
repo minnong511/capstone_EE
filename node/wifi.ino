@@ -21,7 +21,7 @@ static const char* WIFI_SSID = "minnong";
 static const char* WIFI_PASS = "";
 
 // 서버 업로드 엔드포인트 (Flask 예시: http://<server-ip>:5050/upload)
-static const char* UPLOAD_URL = "http://192.168.0.4:5050/upload";
+static const char* UPLOAD_URL = "http://192.168.0.10:5050/upload";
 
 // NTP로 시간 동기화(파일명 타임스탬프 안정)
 static const char* NTP_POOL = "pool.ntp.org";

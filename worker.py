@@ -5,6 +5,7 @@ from alert_system.notification import start_alert_checker
 from Model.base_model_panns import (
     PANNsCNN10, TransferClassifier, get_device, get_label_dict
 )
+from data_visaualization.dbvisual_module import start_db_visualization
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +39,9 @@ if __name__ == "__main__":
         name="AlertThread",
         daemon=True
     ).start()
+
+    start_db_visualization()
+
 
     # 메인 프로세스를 유지
     try:
