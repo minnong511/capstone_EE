@@ -69,7 +69,7 @@ from flask import Flask, request, jsonify
 #   - ROOT_DIR : 이 파일(node_wifi.py)이 위치한 디렉토리
 #   - DEFAULT_TARGET_DIR : 기본 저장 디렉토리 (없으면 자동 생성)
 # -----------------------------------------------------------------------------
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_TARGET_DIR = ROOT_DIR / "Input_data" / "real_input"
 DEFAULT_TARGET_DIR.mkdir(parents=True, exist_ok=True)
 
