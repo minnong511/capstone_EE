@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+"""
+6. 메인 루프 (main())
+	1.	폴더 스캔: 새 wav 파일 확인
+	2.	이벤트 그룹화: 시간 차이가 1초 이내인 파일 묶음
+	3.	선택: 이벤트 중 peak dBFS가 가장 큰 것 하나 선택
+	4.	전처리 및 TDOA: 신호 로드 → 필터링 → 시간차 계산
+	5.	좌표 추정: 격자 탐색으로 (x, y) 계산
+	6.	출력/저장: 콘솔 로그 + JSON 파일 저장
+"""
+
 """
 [슬라이딩 윈도우 TDOA 러너 - 샘플 구조]
 
@@ -23,6 +34,7 @@ OUTPUT
 
 import time
 import json
+import shutil
 import math
 import fnmatch
 from pathlib import Path
@@ -41,7 +53,11 @@ except Exception:
 # 설정 파라미터
 # --------------------------
 ROOT_DIR = Path(__file__).resolve().parent  # 이 파일 위치 기준
-IN_DIR = ROOT_DIR / "Input_data" / "real_input"
+IN_DIR = ROOT_DIR / "Input_data" / "real_input_tdoa"
+# 가장 큰 소리를 복사할 목적지 디렉토리 (슬라이딩 윈도우 이후)
+DEST_DIR = ROOT_DIR / "Input_data" / "real_input"
+DEST_DIR.mkdir(parents=True, exist_ok=True)
+
 RESULT_DIR = ROOT_DIR / "results"
 RESULT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -213,6 +229,7 @@ class Event:
     key_ts: float                      # 이벤트 대표 시각(초)
     files: Dict[str, Path]             # mic_id -> 파일 경로
     peak_db: float                     # 이벤트 내 파일들 중 최대 dBFS
+    peak_file: Path | None = None
 
 def group_events(files: List[Path], window_sec: float) -> List[Event]:
     """파일들을 시간 기준으로 묶어 이벤트 리스트를 만든다."""
@@ -230,6 +247,7 @@ def group_events(files: List[Path], window_sec: float) -> List[Event]:
             return
         # 그룹 peak dB 계산 (파일 하나씩 로드 → RMS dBFS 최대)
         peak = -120.0
+        peak_path: Path | None = None
         for p in current_group.values():
             x, fs = load_wav_mono(p, FS_TARGET)
             x = zero_mean(x)
@@ -238,8 +256,11 @@ def group_events(files: List[Path], window_sec: float) -> List[Event]:
                     x = apply_bandpass(x, fs, BANDPASS)
                 except Exception:
                     pass
-            peak = max(peak, rms_dbfs(x))
-        ev = Event(key_ts=float(np.mean(group_times)), files=dict(current_group), peak_db=peak)
+            val = rms_dbfs(x)
+            if val > peak:
+                peak = val
+                peak_path = p
+        ev = Event(key_ts=float(np.mean(group_times)), files=dict(current_group), peak_db=peak, peak_file=peak_path)
         events.append(ev)
 
     base_time = files[0].stat().st_mtime
@@ -263,83 +284,134 @@ def group_events(files: List[Path], window_sec: float) -> List[Event]:
     return events
 
 # --------------------------
-# 메인 루프
+# 공개 API: 1회 실행/처리 유닛
 # --------------------------
 
-def main():
-    print(f"[Runner] watching: {IN_DIR}")
+def _prepare_signals(available: Dict[str, Path]) -> Tuple[Dict[str, np.ndarray], int]:
+    """마이크 wav 경로 dict -> (전처리된 신호 dict, fs) 반환"""
+    signals: Dict[str, np.ndarray] = {}
+    fs_used: Optional[int] = None
+    for mid, p in available.items():
+        x, fs = load_wav_mono(p, FS_TARGET)
+        x = zero_mean(x)
+        if BANDPASS:
+            try:
+                x = apply_bandpass(x, fs, BANDPASS)
+            except Exception:
+                pass
+        signals[mid] = x
+        fs_used = fs if fs_used is None else fs_used
+    if fs_used is None:
+        fs_used = FS_TARGET
+    return signals, fs_used
+
+
+def _process_event(ev: 'Event', dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR) -> Optional[dict]:
+    """단일 이벤트 처리: TDOA -> 좌표 추정 -> 결과 저장/복사. 결과 dict 반환."""
+    # 등록된 MIC_XY에 있는 마이크만 사용
+    available = {mid: path for mid, path in ev.files.items() if mid in MIC_XY}
+    if len(available) < MIN_MICS_REQUIRED:
+        print(f"[Runner] skip (mics<{MIN_MICS_REQUIRED}). have: {list(available.keys())}")
+        return None
+
+    # 신호 준비
+    signals, fs_used = _prepare_signals(available)
+
+    # 기준 마이크 결정
+    ref = REF_ID if REF_ID in signals else list(signals.keys())[0]
+
+    # TDOA -> 좌표
+    taus = tdoa_estimate(signals, fs_used, ref, MIC_XY)
+    x_hat, y_hat, cmin = grid_localize(taus, ref, MIC_XY, GRID)
+    print(f"[TDOA] Estimated position: x={x_hat:.2f} m, y={y_hat:.2f} m (cost={cmin:.3g})")
+
+    # 결과 구성 & 저장
+    out = {
+        "ts": ev.key_ts,
+        "peak_db": ev.peak_db,
+        "files": {k: str(v) for k, v in available.items()},
+        "taus": taus,
+        "x_hat": x_hat, "y_hat": y_hat, "cost": cmin,
+        "grid": GRID, "bandpass": BANDPASS, "fs": fs_used,
+    }
+    out_path = result_dir / f"tdoa_{time.strftime('%Y%m%d_%H%M%S', time.localtime(ev.key_ts))}.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+    print(f"[TDOA] result saved: {out_path}")
+
+    # 가장 큰 소리 파일 복사
+    try:
+        if ev.peak_file and ev.peak_file.exists():
+            ts_tag = time.strftime('%Y%m%d-%H%M%S', time.localtime(ev.key_ts))
+            dst_name = f"{ts_tag}__{ev.peak_file.name}"
+            dst_path = dest_dir / dst_name
+            shutil.copy2(ev.peak_file, dst_path)
+            print(f"[COPY] loudest file copied to: {dst_path}")
+        else:
+            print("[COPY] peak file not found; skip copy.")
+    except Exception as ce:
+        print(f"[COPY][ERROR] {ce}")
+
+    return out
+
+
+def run_tdoa_once(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR,
+                   event_window: float = EVENT_GROUP_WINDOW_SEC) -> Optional[dict]:
+    """한 번만 스캔하여 이벤트가 있으면 가장 큰 이벤트를 처리하고 결과 dict를 반환한다."""
+    new_files = [p for p in list_wavs_since(in_dir, 0.0) if p.exists()]
+    if not new_files:
+        return None
+    events = group_events(new_files, event_window)
+    if not events:
+        return None
+
+    ev = max(events, key=lambda e: e.peak_db)
+    print(f"[Runner] picked event @ {time.strftime('%H:%M:%S', time.localtime(ev.key_ts))} peak={ev.peak_db:.1f} dBFS, files={len(ev.files)}")
+    result = _process_event(ev, dest_dir=dest_dir, result_dir=result_dir)
+    return result
+
+# --------------------------
+# 메인 루프 (루프형 공개 API)
+# --------------------------
+
+def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR,
+                  scan_interval: float = SCAN_INTERVAL_SEC, event_window: float = EVENT_GROUP_WINDOW_SEC) -> None:
+    print(f"[Runner] watching: {in_dir}")
     last_scan_ts = 0.0
     seen_files: set[str] = set()
 
     while True:
         try:
-            # 1) 새 파일 스캔
-            new_files = [p for p in list_wavs_since(IN_DIR, last_scan_ts) if p.exists()]
+            new_files = [p for p in list_wavs_since(in_dir, last_scan_ts) if p.exists()]
             if new_files:
                 last_scan_ts = max(p.stat().st_mtime for p in new_files)
-
-                # 중복 처리 방지
                 new_files = [p for p in new_files if str(p) not in seen_files]
                 for p in new_files:
                     seen_files.add(str(p))
 
-                # 2) 이벤트 묶음 구성
-                events = group_events(new_files, EVENT_GROUP_WINDOW_SEC)
-
-                if not events:
-                    pass
-                else:
-                    # 3) 이벤트 중 peak dB가 가장 큰 1개 선택
+                events = group_events(new_files, event_window)
+                if events:
                     ev = max(events, key=lambda e: e.peak_db)
                     print(f"[Runner] picked event @ {time.strftime('%H:%M:%S', time.localtime(ev.key_ts))} peak={ev.peak_db:.1f} dBFS, files={len(ev.files)}")
+                    _process_event(ev, dest_dir=dest_dir, result_dir=result_dir)
 
-                    # 4) TDOA 준비: 필요한 마이크만 추출 + 로딩
-                    #    (등록된 MIC_XY에 있는 마이크들만 사용)
-                    available = {mid: path for mid, path in ev.files.items() if mid in MIC_XY}
-                    if len(available) < MIN_MICS_REQUIRED:
-                        print(f"[Runner] skip (mics<{MIN_MICS_REQUIRED}). have: {list(available.keys())}")
-                    else:
-                        signals: Dict[str, np.ndarray] = {}
-                        fs_used = None
-                        for mid, p in available.items():
-                            x, fs = load_wav_mono(p, FS_TARGET)
-                            x = zero_mean(x)
-                            if BANDPASS:
-                                try:
-                                    x = apply_bandpass(x, fs, BANDPASS)
-                                except Exception:
-                                    pass
-                            signals[mid] = x
-                            fs_used = fs if fs_used is None else fs_used
-
-                        # 5) TDOA → 좌표
-                        taus = tdoa_estimate(signals, fs_used, REF_ID if REF_ID in signals else list(signals.keys())[0], MIC_XY)
-                        x_hat, y_hat, cmin = grid_localize(taus, REF_ID if REF_ID in signals else list(signals.keys())[0], MIC_XY, GRID)
-                        print(f"[TDOA] Estimated position: x={x_hat:.2f} m, y={y_hat:.2f} m (cost={cmin:.3g})")
-
-                        # 6) 결과 저장(옵션)
-                        out = {
-                            "ts": ev.key_ts,
-                            "peak_db": ev.peak_db,
-                            "files": {k: str(v) for k,v in available.items()},
-                            "taus": taus,
-                            "x_hat": x_hat, "y_hat": y_hat, "cost": cmin,
-                            "grid": GRID, "bandpass": BANDPASS, "fs": fs_used,
-                        }
-                        out_path = RESULT_DIR / f"tdoa_{time.strftime('%Y%m%d_%H%M%S', time.localtime(ev.key_ts))}.json"
-                        with open(out_path, "w", encoding="utf-8") as f:
-                            json.dump(out, f, ensure_ascii=False, indent=2)
-                        print(f"[TDOA] result saved: {out_path}")
-
-            time.sleep(SCAN_INTERVAL_SEC)
+            time.sleep(scan_interval)
 
         except KeyboardInterrupt:
             print("\n[Runner] Stop.")
             break
         except Exception as e:
             print(f"[Runner][ERROR] {e}")
-            time.sleep(SCAN_INTERVAL_SEC)
+            time.sleep(scan_interval)
+
+
+def main():
+    IN_DIR.mkdir(parents=True, exist_ok=True)
+    DEST_DIR.mkdir(parents=True, exist_ok=True)
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    run_tdoa_loop()
 
 if __name__ == "__main__":
     IN_DIR.mkdir(parents=True, exist_ok=True)
+    DEST_DIR.mkdir(parents=True, exist_ok=True)
     main()

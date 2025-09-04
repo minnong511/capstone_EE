@@ -70,7 +70,7 @@ from flask import Flask, request, jsonify
 #   - DEFAULT_TARGET_DIR : 기본 저장 디렉토리 (없으면 자동 생성)
 # -----------------------------------------------------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_TARGET_DIR = ROOT_DIR / "Input_data" / "real_input"
+DEFAULT_TARGET_DIR = ROOT_DIR / "Input_data" / "real_input_tdoa"
 DEFAULT_TARGET_DIR.mkdir(parents=True, exist_ok=True)
 
 # -----------------------------------------------------------------------------

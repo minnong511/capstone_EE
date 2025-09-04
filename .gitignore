@@ -9,3 +9,5 @@ Dataset/Dataset/.DS_Store
 Input_data
 DB/alerts.db 
 DB/inference_results.db 
+tmux-client-93951.log 
+tmux-server-93952.log 
