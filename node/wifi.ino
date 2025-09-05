@@ -47,10 +47,10 @@ static const int   NUM_CHANNELS      = 1;       // mono
 static const int   BITS_PER_SAMPLE   = 16;      // 저장은 16-bit PCM
 
 // dBFS 트리거 파라미터
-static const float CALIB_SEC         = 10.0f;   // 주변 소음 캘리브레이션 시간
+static const float CALIB_SEC         = 5.0f;   // 주변 소음 캘리브레이션 시간
 static const float HOP_SEC           = 0.032f;  // RMS 측정 블록 (32ms)
 static const float RECORD_SEC        = 2.0f;    // 트리거 시 녹음 길이
-static const float THRESH_DB_ABOVE   = 3.0f;    // ambient + 3 dBFS
+static const float THRESH_DB_ABOVE   = 8.0f;    // ambient + 3 dBFS
 static const uint16_t MIN_BLOCKS_OVER= 1;       // 연속 1블록 넘으면 트리거
 static const uint32_t REFRACT_MS     = 1500;    // 전송 후 불응기
 
