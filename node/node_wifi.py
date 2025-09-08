@@ -22,7 +22,7 @@ HTTP 방식으로 대체한 버전이며, 파일 저장 경로/호출 인터페�
 [ESP32 → 서버 업로드 프로토콜]
   - 요청(HTTP POST /upload)
     Headers:
-      X-Room-ID    : 방/구역 이름(예: Room102)           [선택, 기본 "unknown"]
+      X-Room-ID    : 방/구역 이름(예: Room1)           [선택, 기본 "unknown"]
       X-Mic-ID     : 센서(마이크) 이름(예: Sensor-01)     [선택, 기본 "unknown"]
       X-Timestamp  : epoch seconds(정수/실수)             [선택]
                       미제공 또는 파싱 실패 시 서버 수신 시각 사용

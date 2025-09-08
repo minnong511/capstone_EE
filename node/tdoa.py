@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# 본 모듈은 멀티 마이크로 수집된 WAV를 주기적으로 스캔하여
+# 1) 시간 근접 파일을 이벤트로 묶고, 2) 이벤트 중 최대 dBFS 하나를 선택,
+# 3) GCC-PHAT 기반 TDOA로 위치를 추정, 4) 결과를 JSON으로 저장하며
+# 5) 해당 이벤트의 가장 큰 소리 파일을 목적지 디렉토리로 복사합니다.
 
 """
 6. 메인 루프 (main())
@@ -50,7 +54,7 @@ except Exception:
     HAVE_SF = False
 
 # --------------------------
-# 설정 파라미터
+# [설정] 입출력 디렉토리, 스캔 간격, 이벤트 윈도우, 최소 마이크 수, 리샘플 fs, 밴드패스 대역, 음속 등
 # --------------------------
 ROOT_DIR = Path(__file__).resolve().parent  # 이 파일 위치 기준
 IN_DIR = ROOT_DIR / "Input_data" / "real_input_tdoa"
@@ -83,6 +87,7 @@ GRID = (-1.0, 3.0, -1.0, 3.0, 0.05)  # xmin, xmax, ymin, ymax, step
 # 유틸
 # --------------------------
 
+# since_ts 이후 갱신된 *.wav 파일을 시간순으로 반환
 def list_wavs_since(dirpath: Path, since_ts: float) -> List[Path]:
     """since_ts(UNIX epoch) 이후 생성/수정된 wav 목록."""
     files = []
@@ -95,6 +100,7 @@ def list_wavs_since(dirpath: Path, since_ts: float) -> List[Path]:
             files.append(p)
     return sorted(files, key=lambda x: x.stat().st_mtime)
 
+# 파일명에서 Sensor-xx 형태의 마이크 ID를 유추
 def parse_mic_id_from_name(path: Path) -> Optional[str]:
     """파일명에서 센서ID 추출 (패턴이 명확하지 않아도 'Sensor-xx' 서브스트링으로 탐색)."""
     name = path.name
@@ -108,6 +114,7 @@ def parse_mic_id_from_name(path: Path) -> Optional[str]:
             return t
     return None
 
+# WAV 로드 → mono 변환 및 필요 시 선형 리샘플링
 def load_wav_mono(path: Path, fs_target: Optional[int] = None) -> Tuple[np.ndarray, int]:
     """wav 로드 → mono float32, 필요 시 간단 리샘플."""
     if HAVE_SF:
@@ -131,21 +138,25 @@ def load_wav_mono(path: Path, fs_target: Optional[int] = None) -> Tuple[np.ndarr
         fs = fs_target
     return x, fs
 
+# 평균(DC) 제거
 def zero_mean(x: np.ndarray) -> np.ndarray:
     m = float(np.mean(x)) if x.size else 0.0
     return (x - m).astype(np.float32)
 
+# 밴드패스 필터 계수 생성 (scipy)
 def butter_bandpass(band: Tuple[float,float], fs: int, order=4):
     from math import tan, pi
     from scipy.signal import butter
     low, high = band
     return butter(order, [low/(fs*0.5), high/(fs*0.5)], btype="band")
 
+# 밴드패스 필터 적용
 def apply_bandpass(x: np.ndarray, fs: int, band: Tuple[float,float]) -> np.ndarray:
     from scipy.signal import lfilter
     b,a = butter_bandpass(band, fs)
     return lfilter(b, a, x).astype(np.float32)
 
+# RMS를 dBFS 스케일로 환산
 def rms_dbfs(x: np.ndarray) -> float:
     if x.size == 0:
         return -120.0
@@ -156,8 +167,10 @@ def rms_dbfs(x: np.ndarray) -> float:
 # GCC-PHAT TDOA (간단 버전)
 # --------------------------
 
+# GCC-PHAT으로 두 신호의 시간 지연 τ(초) 추정
 def gcc_phat(sig: np.ndarray, ref: np.ndarray, fs: int, interp: int = 16, max_tau: Optional[float]=None) -> float:
     """sig vs ref 시간차(초)."""
+    # FFT 길이 n 계산(컨볼루션 길이 이상으로)
     n = 1
     L = len(sig) + len(ref)
     while n < L:
@@ -165,18 +178,22 @@ def gcc_phat(sig: np.ndarray, ref: np.ndarray, fs: int, interp: int = 16, max_ta
     SIG = np.fft.rfft(sig, n=n)
     REF = np.fft.rfft(ref, n=n)
     R = SIG * np.conj(REF)
+    # PHAT 가중치로 위상만 남김
     denom = np.abs(R) + 1e-12
     G = R / denom
+    # 역 FFT로 상호상관 계열 계산
     cc = np.fft.irfft(G, n=interp*n)
     cc = np.concatenate((cc[-(interp*len(sig))//2:], cc[:(interp*len(sig))//2]))
     shift = np.argmax(np.abs(cc)) - len(cc)//2
 
+    # 물리 한계를 고려해 최대 시프트 제한
     if max_tau is not None:
         max_shift = int(max_tau * fs * interp)
         shift = int(np.clip(shift, -max_shift, max_shift))
     tau = shift / (fs * interp)
     return float(tau)
 
+# 기준(ref) 대비 각 마이크의 지연 τ를 사전 형태로 반환
 def tdoa_estimate(signals: Dict[str, np.ndarray], fs: int, ref_id: str, mic_xy: Dict[str, Tuple[float,float]]) -> Dict[str, float]:
     """각 마이크의 ref 대비 지연(초)."""
     if ref_id not in signals:
@@ -184,7 +201,7 @@ def tdoa_estimate(signals: Dict[str, np.ndarray], fs: int, ref_id: str, mic_xy: 
         ref_id = sorted(signals.keys())[0]
     ref = signals[ref_id]
     taus = {ref_id: 0.0}
-    # 최대 지연(물리 한계): 마이크 간 최대 거리
+    # 마이크 간 최대 거리→최대 지연 한계 계산
     coords = np.array(list(mic_xy.values()), dtype=np.float32)
     dmax = 0.0
     for i in range(len(coords)):
@@ -198,6 +215,7 @@ def tdoa_estimate(signals: Dict[str, np.ndarray], fs: int, ref_id: str, mic_xy: 
         taus[mid] = gcc_phat(x, ref, fs, interp=16, max_tau=max_tau)
     return taus
 
+# 격자 탐색으로 L1 비용 최소가 되는 (x,y) 위치 추정
 def grid_localize(taus_obs: Dict[str,float], ref_id: str, mic_xy: Dict[str,Tuple[float,float]], grid: Tuple[float,float,float,float,float]) -> Tuple[float,float,float]:
     """L1 비용으로 2D 위치 추정. return: (x_hat, y_hat, min_cost)."""
     xmin,xmax,ymin,ymax,step = grid
@@ -224,6 +242,7 @@ def grid_localize(taus_obs: Dict[str,float], ref_id: str, mic_xy: Dict[str,Tuple
 # 이벤트 구성 & 선택
 # --------------------------
 
+# 이벤트 단위: 대표 시각, 마이크별 파일, 최대 dBFS, 최대값 파일 경로
 @dataclass
 class Event:
     key_ts: float                      # 이벤트 대표 시각(초)
@@ -231,6 +250,7 @@ class Event:
     peak_db: float                     # 이벤트 내 파일들 중 최대 dBFS
     peak_file: Path | None = None
 
+# 파일을 생성 시각 기준으로 window_sec 이내 묶어 이벤트 리스트 생성
 def group_events(files: List[Path], window_sec: float) -> List[Event]:
     """파일들을 시간 기준으로 묶어 이벤트 리스트를 만든다."""
     events: List[Event] = []
@@ -245,7 +265,7 @@ def group_events(files: List[Path], window_sec: float) -> List[Event]:
     def finalize_group():
         if not current_group:
             return
-        # 그룹 peak dB 계산 (파일 하나씩 로드 → RMS dBFS 최대)
+        # 그룹 내 각 파일의 dBFS를 계산해 최대값과 해당 경로를 기록
         peak = -120.0
         peak_path: Path | None = None
         for p in current_group.values():
@@ -287,6 +307,7 @@ def group_events(files: List[Path], window_sec: float) -> List[Event]:
 # 공개 API: 1회 실행/처리 유닛
 # --------------------------
 
+# 사용 가능한 마이크 파일들을 전처리하여 신호 dict와 샘플레이트 반환
 def _prepare_signals(available: Dict[str, Path]) -> Tuple[Dict[str, np.ndarray], int]:
     """마이크 wav 경로 dict -> (전처리된 신호 dict, fs) 반환"""
     signals: Dict[str, np.ndarray] = {}
@@ -306,9 +327,9 @@ def _prepare_signals(available: Dict[str, Path]) -> Tuple[Dict[str, np.ndarray],
     return signals, fs_used
 
 
+# 단일 이벤트 처리: 신호 준비→TDOA→좌표추정→JSON 저장→피크 파일 복사
 def _process_event(ev: 'Event', dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR) -> Optional[dict]:
-    """단일 이벤트 처리: TDOA -> 좌표 추정 -> 결과 저장/복사. 결과 dict 반환."""
-    # 등록된 MIC_XY에 있는 마이크만 사용
+    # 등록된 MIC_XY에 존재하는 마이크만 사용
     available = {mid: path for mid, path in ev.files.items() if mid in MIC_XY}
     if len(available) < MIN_MICS_REQUIRED:
         print(f"[Runner] skip (mics<{MIN_MICS_REQUIRED}). have: {list(available.keys())}")
@@ -325,7 +346,7 @@ def _process_event(ev: 'Event', dest_dir: Path = DEST_DIR, result_dir: Path = RE
     x_hat, y_hat, cmin = grid_localize(taus, ref, MIC_XY, GRID)
     print(f"[TDOA] Estimated position: x={x_hat:.2f} m, y={y_hat:.2f} m (cost={cmin:.3g})")
 
-    # 결과 구성 & 저장
+    # 결과 payload 구성
     out = {
         "ts": ev.key_ts,
         "peak_db": ev.peak_db,
@@ -339,7 +360,7 @@ def _process_event(ev: 'Event', dest_dir: Path = DEST_DIR, result_dir: Path = RE
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"[TDOA] result saved: {out_path}")
 
-    # 가장 큰 소리 파일 복사
+    # 이벤트의 최대 dBFS 파일을 목적지 폴더로 백업(타임스탬프 접두사)
     try:
         if ev.peak_file and ev.peak_file.exists():
             ts_tag = time.strftime('%Y%m%d-%H%M%S', time.localtime(ev.key_ts))
@@ -355,6 +376,7 @@ def _process_event(ev: 'Event', dest_dir: Path = DEST_DIR, result_dir: Path = RE
     return out
 
 
+# 단발 실행: in_dir을 한 번 스캔하여 가장 큰 이벤트만 처리
 def run_tdoa_once(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR,
                    event_window: float = EVENT_GROUP_WINDOW_SEC) -> Optional[dict]:
     """한 번만 스캔하여 이벤트가 있으면 가장 큰 이벤트를 처리하고 결과 dict를 반환한다."""
@@ -374,14 +396,17 @@ def run_tdoa_once(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: 
 # 메인 루프 (루프형 공개 API)
 # --------------------------
 
+# 지속 실행 루프: 주기적으로 스캔→이벤트 구성→최대 이벤트 처리
 def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR,
                   scan_interval: float = SCAN_INTERVAL_SEC, event_window: float = EVENT_GROUP_WINDOW_SEC) -> None:
     print(f"[Runner] watching: {in_dir}")
+    # 마지막 스캔 시각과 중복 방지 집합 초기화
     last_scan_ts = 0.0
     seen_files: set[str] = set()
 
     while True:
         try:
+            # 마지막 스캔 이후 갱신된 파일만 수집
             new_files = [p for p in list_wavs_since(in_dir, last_scan_ts) if p.exists()]
             if new_files:
                 last_scan_ts = max(p.stat().st_mtime for p in new_files)
@@ -389,6 +414,7 @@ def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: 
                 for p in new_files:
                     seen_files.add(str(p))
 
+                # 새 파일들로 이벤트 묶음 생성
                 events = group_events(new_files, event_window)
                 if events:
                     ev = max(events, key=lambda e: e.peak_db)
@@ -405,10 +431,12 @@ def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: 
             time.sleep(scan_interval)
 
 
+# 단독 실행 시: 디렉토리 보장 후 루프 시작
 def main():
     IN_DIR.mkdir(parents=True, exist_ok=True)
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    # 공개 API 호출
     run_tdoa_loop()
 
 if __name__ == "__main__":
