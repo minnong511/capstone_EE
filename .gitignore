@@ -11,3 +11,4 @@ DB/alerts.db
 DB/inference_results.db 
 tmux-client-93951.log 
 tmux-server-93952.log 
+AGENTS.md

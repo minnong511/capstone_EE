@@ -38,6 +38,7 @@ OUTPUT
 
 import time
 import json
+import logging
 import shutil
 import math
 import fnmatch
@@ -82,6 +83,12 @@ REF_ID = "Sensor-01"  # 기준 마이크 (없으면 자동 선택)
 
 # 그리드 탐색 영역 (m)
 GRID = (-1.0, 3.0, -1.0, 3.0, 0.05)  # xmin, xmax, ymin, ymax, step
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(threadName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # --------------------------
 # 유틸
@@ -400,6 +407,8 @@ def run_tdoa_once(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: 
 def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: Path = RESULT_DIR,
                   scan_interval: float = SCAN_INTERVAL_SEC, event_window: float = EVENT_GROUP_WINDOW_SEC) -> None:
     print(f"[Runner] watching: {in_dir}")
+    heartbeat_last = time.time()
+    events_processed = 0
     # 마지막 스캔 시각과 중복 방지 집합 초기화
     last_scan_ts = 0.0
     seen_files: set[str] = set()
@@ -420,6 +429,13 @@ def run_tdoa_loop(in_dir: Path = IN_DIR, dest_dir: Path = DEST_DIR, result_dir: 
                     ev = max(events, key=lambda e: e.peak_db)
                     print(f"[Runner] picked event @ {time.strftime('%H:%M:%S', time.localtime(ev.key_ts))} peak={ev.peak_db:.1f} dBFS, files={len(ev.files)}")
                     _process_event(ev, dest_dir=dest_dir, result_dir=result_dir)
+                    events_processed += 1
+
+            # --- 10초 하트비트 로그 ---
+            if time.time() - heartbeat_last >= 10.0:
+                logging.info(f"[TDOA] runner alive: watching={in_dir}, interval={scan_interval}s, "
+                             f"events_processed={events_processed}, seen_files={len(seen_files)}")
+                heartbeat_last = time.time()
 
             time.sleep(scan_interval)
 

@@ -166,8 +166,8 @@ def process_data(db_path, last_processed_time, cooldown_tracker):
 
     # 선택된 알림을 로그에 출력하고 DB에 저장
     for alert in alerts_to_send:
-        logging.info(f"{alert['type']} 소리가 {alert['mic']}에서 발생했습니다.")
-        logging.info(f"선택된 소리: {alert['type']}, 마이크: {alert['mic']}, 우선순위: {alert['priority']}")
+        # logging.info(f"{alert['type']} 소리가 {alert['mic']}에서 발생했습니다.")
+        # logging.info(f"선택된 소리: {alert['type']}, 마이크: {alert['mic']}, 우선순위: {alert['priority']}")
         save_alert_to_db(alert)
 
     return now  # 최근 처리 시간 반환
@@ -178,12 +178,18 @@ def start_alert_checker(db_path="./DB/inference_results.db"):
     last_time = datetime.now() - timedelta(seconds=5)
     cooldown_tracker = {}
     iteration_count = 0  # 실행 횟수 카운터 추가
+    last_log_time = time.time()
 
     try:
         while True:
             last_time = process_data(db_path, last_time, cooldown_tracker)
             time.sleep(1)
             iteration_count += 1
+
+            # 10초마다 상태 로그 출력
+            if time.time() - last_log_time >= 10:
+                logging.info(f"[AlertChecker] processed at {datetime.now()}, cooldown size={len(cooldown_tracker)}")
+                last_log_time = time.time()
 
             # 60초마다 inference_results와 alerts 테이블의 오래된 데이터 삭제
             if iteration_count % 60 == 0:  # every 60 seconds

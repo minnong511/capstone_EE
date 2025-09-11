@@ -2,6 +2,7 @@ import asyncio
 import json
 import sqlite3
 import time
+import os
 from typing import Set, Optional
 import logging
 
@@ -50,20 +51,77 @@ async def _broadcast_text(text: str):
             continue
         tasks.append(ws.send(text))
     if tasks:
+        print(f"[WebSocket DEBUG] Broadcasting text: {text}")
         await asyncio.gather(*tasks, return_exceptions=True)
+        print(f"[WebSocket DEBUG] Successfully broadcasted to {len(tasks)} clients.")
 
 # --- SQLite helper ---
+_DB_PATH_CACHE = None
 def _connect_db():
     """
     Create a SQLite connection and set safe PRAGMAs for concurrent access.
+    Resolve DB path relative to the project root so CWD changes (tmux, services) don't break it.
     """
-    conn = sqlite3.connect('./DB/alerts.db', timeout=2.0)
+    global _DB_PATH_CACHE
+    if _DB_PATH_CACHE is None:
+        # .../capstone_EE/web/websocket_server.py  -> project root = parent of "web"
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        db_path = os.path.join(project_root, "DB", "alerts.db")
+        _DB_PATH_CACHE = db_path
+        logging.info(f"[DB-WS] Using DB file: {_DB_PATH_CACHE}")
+    conn = sqlite3.connect(_DB_PATH_CACHE, timeout=2.0)
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA busy_timeout=2000;")
     except Exception:
         pass
     return conn
+
+_ALERTS_COLS_CACHE: Optional[Set[str]] = None
+def _get_alerts_columns() -> Set[str]:
+    """
+    Inspect the `alerts` table schema and return a set of column names.
+    Caches the result for subsequent calls.
+    """
+    global _ALERTS_COLS_CACHE
+    if _ALERTS_COLS_CACHE is not None:
+        return _ALERTS_COLS_CACHE
+    cols: Set[str] = set()
+    try:
+        conn = _connect_db()
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info('alerts')")
+        rows = cur.fetchall()
+        conn.close()
+        for _, name, *_ in rows:
+            cols.add(str(name))
+        logging.info(f"[DB-WS] alerts columns detected: {sorted(cols)}")
+    except Exception as e:
+        logging.exception(f"[DB-WS] failed to inspect alerts schema: {e}")
+    _ALERTS_COLS_CACHE = cols
+    return cols
+
+def _build_alerts_select_clause(cols: Set[str]) -> str:
+    """
+    Build a SELECT field list that tolerates missing columns by substituting NULLs.
+    Always aliases to a consistent set of names: id, room_id, mic_id, category, decibel, created_at, file
+    """
+    file_candidates = [c for c in ("file", "filename", "path") if c in cols]
+    if file_candidates:
+        file_expr = f"COALESCE({', '.join(file_candidates)}) AS file"
+    else:
+        file_expr = "NULL AS file"
+
+    fields = [
+        "id",
+        "room_id" if "room_id" in cols else "NULL AS room_id",
+        "mic_id" if "mic_id" in cols else "NULL AS mic_id",
+        "category" if "category" in cols else "NULL AS category",
+        "decibel" if "decibel" in cols else "NULL AS decibel",
+        "created_at" if "created_at" in cols else "NULL AS created_at",
+        file_expr,
+    ]
+    return ", ".join(fields)
 
 def broadcast_json(payload: dict):
     """
@@ -75,6 +133,7 @@ def broadcast_json(payload: dict):
     if WS_LOOP is None or not WS_LOOP.is_running():
         return
     text = json.dumps(payload, ensure_ascii=False)
+    print(f"[WebSocket DEBUG] Scheduling broadcast: {text}")
     fut = asyncio.run_coroutine_threadsafe(_broadcast_text(text), WS_LOOP)
     # Avoid raising exceptions in caller thread
     def _swallow(f):
@@ -137,13 +196,17 @@ def start_db_event_publisher(poll_ms: int = 500, send_history: bool = False, bat
     max_id = cur.fetchone()[0] or 0
     conn.close()
     last_id = 0 if send_history else max_id
+    logging.info(f"[DB-WS] Event publisher start. send_history={send_history}, start last_id={last_id}")
+
+    cols = _get_alerts_columns()
+    select_clause = _build_alerts_select_clause(cols)
 
     while True:
         try:
             conn = _connect_db()
             cur = conn.cursor()
             cur.execute(f"""
-                SELECT id, room_id, mic_id, category, decibel, created_at, file
+                SELECT {select_clause}
                 FROM alerts
                 WHERE id > ?
                 ORDER BY id ASC
@@ -151,23 +214,23 @@ def start_db_event_publisher(poll_ms: int = 500, send_history: bool = False, bat
             """, (last_id,))
             rows = cur.fetchall()
             conn.close()
+            logging.info(f"[DB-WS] fetched {len(rows)} rows from alerts (last_id={last_id})")
 
             # Broadcast each new row
             for (rid, room_id, mic_id, category, decibel, created_at, file_) in rows:
                 payload = {
                     "type": "alert_event",
                     "id": int(rid),
-                    "room_id": room_id,
-                    "mic_id": mic_id,
-                    "category": category,
-                    "decibel": int(decibel) if decibel is not None else None,
-                    "timestamp": created_at,
-                    "file": file_
+                    "room_id": room_id if room_id is not None else "",
+                    "mic_id": mic_id if mic_id is not None else "",
+                    "category": category if category is not None else "",
+                    "decibel": int(decibel) if isinstance(decibel, (int, float)) else None,
+                    "timestamp": created_at if created_at is not None else time.strftime('%Y-%m-%d %H:%M:%S'),
+                    "file": file_ if file_ is not None else ""
                 }
                 broadcast_json(payload)
                 last_id = rid
-        except Exception:
-            # Swallow exceptions to keep the publisher alive; real logs can be added by caller
-            pass
+        except Exception as e:
+            logging.exception(f"[DB-WS] event publish error: {e}")
         finally:
             time.sleep(interval_s)
