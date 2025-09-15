@@ -77,7 +77,6 @@ def load_recent_events(db_path, last_processed_time):
     # inference_results 테이블에서 필요한 컬럼만 선택해서 가져옴
     cursor.execute("SELECT created_at, decibel, room_id, category FROM inference_results")
     rows = cursor.fetchall()
-    logging.info(f"{len(rows)}개의 데이터를 데이터베이스에서 불러왔습니다.")
     conn.close()
 
     now = datetime.now()

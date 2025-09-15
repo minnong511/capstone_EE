@@ -35,7 +35,7 @@ HTTP 방식으로 대체한 버전이며, 파일 저장 경로/호출 인터페�
 
 [저장 규칙]
   - 상대경로 기준(이 파일이 위치한 폴더): ./Input_data/real_input
-  - 파일명: <MicID>_<RoomID>_<YYYYMMDD-HHMMSS-uuuuuu>.wav
+  - 파일명: <YYYYMMDD-HHMMSS>_<MicID>_<RoomID>.wav  (inference와 동일 규칙)
     * MicID/RoomID는 안전문자만 허용(영숫자, '-', '_') → 경로침투 방지
     * 저장 시 먼저 .part 확장자로 임시 파일을 만든 뒤, 원자적으로 교체
 
@@ -131,7 +131,7 @@ def create_app(save_dir: Path) -> Flask:
 
         # --- 3) 안전한 파일명 생성 -----------------------------------------
         #  - MicID/RoomID 는 영숫자/하이픈/언더스코어만 허용하여 경로침투 방지
-        #  - 마이크로초 단위까지 포함해 충돌 확률 최소화
+        #  - 타임스탬프는 초 단위(YYYYMMDD-HHMMSS). inference_module과 포맷 일치 필요
         ts_str = ts_dt.strftime("%Y%m%d-%H%M%S")
         safe_room = "".join(c for c in room if c.isalnum() or c in ("-", "_"))
         safe_mic  = "".join(c for c in mic  if c.isalnum() or c in ("-", "_"))
@@ -169,7 +169,18 @@ def create_app(save_dir: Path) -> Flask:
             return jsonify(ok=False, error=str(e)), 500
 
         # --- 6) 완료 로그 및 응답 -------------------------------------------
-        print(f"[HTTP] Saved: {out_path}")
+        #    수신 지연(디바이스 타임스탬프 → 서버 저장 시각) 분/초로 요약 출력
+        try:
+            recv_dt = datetime.now()
+            delay_s = max(0, int((recv_dt - ts_dt).total_seconds()))
+            delay_m, delay_ss = divmod(delay_s, 60)
+            delay_text = f"{delay_m}분 {delay_ss}초"
+            print(
+                f"[HTTP] Saved: {out_path} | 지연: {delay_text} ({delay_s}s)"
+            )
+        except Exception:
+            # 지연 계산 실패 시에도 저장 결과만 출력
+            print(f"[HTTP] Saved: {out_path}")
         return jsonify(ok=True, saved=str(out_path), size=len(data))
 
     return app

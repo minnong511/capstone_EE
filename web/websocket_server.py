@@ -3,6 +3,7 @@ import json
 import sqlite3
 import time
 import os
+from datetime import datetime
 from typing import Set, Optional
 import logging
 
@@ -32,28 +33,48 @@ async def _handler(ws: WebSocketServerProtocol):
     """Accept connections and keep them until closed. Push-only server."""
     CONNECTED.add(ws)
     try:
+        logging.info(f"[WebSocket] client connected. total={len(CONNECTED)}")
         await ws.send(json.dumps({"type": "hello", "message": "connected"}))
         async for _ in ws:
             # Ignore client messages for now.
             pass
     finally:
         CONNECTED.discard(ws)
+        logging.info(f"[WebSocket] client disconnected. total={len(CONNECTED)}")
 
 
 async def _broadcast_text(text: str):
-    """Coroutine that sends `text` to all connected clients."""
+    """Coroutine that sends `text` to all connected clients.
+    Avoids relying on `.closed` attribute for compatibility across websockets versions.
+    """
+    logging.info(f"[WebSocket] broadcast enter; connected={len(CONNECTED)}")
     if not CONNECTED:
+        logging.info("[WebSocket] no clients connected; dropping broadcast")
         return
-    tasks = []
-    for ws in list(CONNECTED):
-        if ws.closed:
-            CONNECTED.discard(ws)
-            continue
-        tasks.append(ws.send(text))
+    targets = list(CONNECTED)
+    tasks = [ws.send(text) for ws in targets]
     if tasks:
         print(f"[WebSocket DEBUG] Broadcasting text: {text}")
-        await asyncio.gather(*tasks, return_exceptions=True)
-        print(f"[WebSocket DEBUG] Successfully broadcasted to {len(tasks)} clients.")
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        err_cnt = 0
+        for ws, res in zip(targets, results):
+            if isinstance(res, Exception):
+                err_cnt += 1
+                # Drop this client on send error
+                try:
+                    CONNECTED.discard(ws)
+                except Exception:
+                    pass
+        if err_cnt:
+            logging.error(f"[WebSocket] broadcast completed with {err_cnt} errors out of {len(results)}")
+            # Log first error for quick diagnosis
+            for res in results:
+                if isinstance(res, Exception):
+                    logging.exception("[WebSocket] first send error", exc_info=res)
+                    break
+        print(f"[WebSocket DEBUG] Successfully broadcasted to {len(tasks)-err_cnt} clients.")
+    else:
+        logging.info("[WebSocket] no eligible clients (possibly none) for broadcast")
 
 # --- SQLite helper ---
 _DB_PATH_CACHE = None
@@ -154,6 +175,7 @@ async def start_websocket_server(host: str = "0.0.0.0", port: int = 8765):
     print(f"[WebSocket] Server started at ws://{host}:{port}")
     async def heartbeat():
         while True:
+            # Report current set size; stale entries are removed on handler close or send error
             num_clients = len(CONNECTED)
             logging.info(f"[WebSocket] 서버 작동 중 ... (연결된 클라이언트: {num_clients}명)")
             await asyncio.sleep(5)
@@ -214,10 +236,21 @@ def start_db_event_publisher(poll_ms: int = 500, send_history: bool = False, bat
             """, (last_id,))
             rows = cur.fetchall()
             conn.close()
-            logging.info(f"[DB-WS] fetched {len(rows)} rows from alerts (last_id={last_id})")
+            logging.debug(f"[DB-WS] fetched {len(rows)} rows from alerts (last_id={last_id})")
 
             # Broadcast each new row
             for (rid, room_id, mic_id, category, decibel, created_at, file_) in rows:
+                # Compute reception delay (now - created_at) summarized in minutes/seconds
+                age_sec: int = 0
+                age_text: str = "0분 0초"
+                try:
+                    if created_at:
+                        dt = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S")
+                        age_sec = max(0, int((datetime.now() - dt).total_seconds()))
+                        m, s = divmod(age_sec, 60)
+                        age_text = f"{m}분 {s}초"
+                except Exception:
+                    pass
                 payload = {
                     "type": "alert_event",
                     "id": int(rid),
@@ -226,9 +259,14 @@ def start_db_event_publisher(poll_ms: int = 500, send_history: bool = False, bat
                     "category": category if category is not None else "",
                     "decibel": int(decibel) if isinstance(decibel, (int, float)) else None,
                     "timestamp": created_at if created_at is not None else time.strftime('%Y-%m-%d %H:%M:%S'),
-                    "file": file_ if file_ is not None else ""
+                    "file": file_ if file_ is not None else "",
+                    "delay_sec": age_sec,
+                    "delay_text": age_text,
                 }
                 broadcast_json(payload)
+                logging.info(
+                    f"[DB-WS] alert id={rid} room={room_id} mic={mic_id} category={category} 지연={age_text} ({age_sec}s)"
+                )
                 last_id = rid
         except Exception as e:
             logging.exception(f"[DB-WS] event publish error: {e}")

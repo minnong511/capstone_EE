@@ -31,7 +31,7 @@ def run_websocket():
     asyncio 이벤트 루프를 스레드마다 새로 생성하기 위해 asyncio.run()을 사용합니다.
     """
     try:
-        asyncio.run(start_websocket_server(host="localhost", port=8765))
+        asyncio.run(start_websocket_server(host="0.0.0.0", port=8765))
     except Exception as e:
         logging.exception("[WebSocket] 서버 실행 오류: %s", e)
 
