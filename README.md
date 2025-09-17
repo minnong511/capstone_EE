@@ -68,13 +68,30 @@ After completing the setup, run the following command to start the system:
 
 ```plaintext
 capstone_EE/
-├─ server.py          # Flask 업로드 수신 전용 (메인 프로세스)
-├─ worker.py          # 추론 + 알림 전용 (백그라운드 스레드 포함)
-├─ main.py            # (선택) 기존 파일은 보관만 하거나 사용 중단
-├─ node/
-│  └─ node_wifi.py    # 이미 있는 Flask 수신기 모듈
-└─ Input_data/
-   └─ real_input/     # 업로드 저장 폴더 (서버·워커 공용)
+├─ server.py                # HTTP 수신 서버, 업로드된 WAV 저장
+├─ worker_socket.py         # 추론 및 알림 기능, 웹소켓 전송 기능
+├─ web/
+│  └─ websocket_server.py   # 실시간 알림 웹소켓 서버
+├─ Model/                   # 사운드 분류 모델 및 추론 유틸
+│  ├─ base_model_panns.py
+│  ├─ inference_module.py
+│  ├─ models.py
+│  ├─ pytorch_utils.py
+│  └─ training.py
+├─ alert_system/
+│  └─ notification.py       # 중복 알림 필터링 및 전송 로직
+├─ node/                    # 센서 노드·장치 측 코드
+│  ├─ wifi.ino
+│  └─ node_wifi.py
+├─ DB/                      # SQLite 연동 및 점검 스크립트
+│  ├─ dataset_check.py
+│  ├─ dataset_vis.py
+│  ├─ insert.py
+│  ├─ query.py
+│  └─ sql_check.py
+├─ data_visaualization/
+│  └─ dbvisual_module.py    # DB 시각화 도구
+└─run_tmux.sh              # 서버·워커를 tmux 세션으로 실행
 ```
 
 # Seoultech EE 2025 Capstone Design (이민형, 김수왕, 김민지)  
@@ -95,7 +112,9 @@ Through sound, individuals can:
 - Understand the structure of a space  
 - Grasp the context of a situation  
 
-The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface. These auditory cues help people detect unseen dangers or recognize when someone is calling them.  
+The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
+
+After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface. These auditory cues help people detect unseen dangers or recognize when someone is calling them.  
 
 However, individuals with hearing impairments face significant challenges in accessing this information. Without auditory input, it becomes difficult to:  
 
@@ -143,8 +162,6 @@ The system consists of multiple sensor nodes installed in each room, which colle
 
 ## 5. Alert Management System  
 
-- 5월 2주차 개발 완료  
-
 1. Mapping Sound Classes to Alert Priorities  
     - 개발 완료  
 2. Personalized Notifications (Vibration, Visuals, Logging)  
@@ -155,19 +172,40 @@ The system consists of multiple sensor nodes installed in each room, which colle
 1. Data Flow and System Workflow  
     - 개발완료  
 2. Integration of ESP32 and Server  
-    - 현재 개발 중  
+    - 개발 완료
 3. Implementation Images and Descriptions  
-    - 현재 개발 중  
+    - 개발 완료  
 
-## 7. Web Page  
+![Connection Log](Image/connection_log.png)  
+실시간 업로드가 접속 로그에 기록되는 모습을 확인할 수 있습니다.  
 
-1. Backend  
-    - 개발 완료  
-    - Flask  
-2. DB system integration  
-    - 개발 완료  
-3. Frontend  
-    - 개발 완료  
+![Multiple Connections](Image/multconnect.png)  
+다중 센서 노드가 동시에 접속하는 경우의 처리 흐름을 시각화했습니다.  
+
+![DB Visualization](Image/db_visualization.png)  
+최신 인퍼런스 결과가 SQLite DB에 반영된 상태를 시각화한 화면입니다.  
+
+## 7. Android App
+
+1. Architecture & Networking  
+    - Receives server events via HTTP/WebSocket and keeps worker alerts synchronized (Completed)  
+2. Backend Integration Layer  
+    - Implements retry strategy (Completed)  
+
+    
+3. Local DB & Storage  
+    - Stores alert logs with Room DB and manages sync queue using WorkManager (Completed)  
+
+![Connection Log](Image/connection_log.png)  
+실시간 업로드가 접속 로그에 기록되는 모습을 확인할 수 있습니다.  
+
+4. Frontend UI/UX  
+    - Delivers accessibility-first screens, event timeline, and per-room filters/visualizations (Completed)  
+5. Push & Haptics  
+    - Supports priority-based notification channels, vibration patterns, and user preferences (Completed)  
+6. Testing & Release Prep  
+    - Running Espresso UI tests, rolling out to internal track, refining QA checklist (In progress)  
+
 
 ----------------------- 2025 Q3,Q4 --------------------------  
 
@@ -176,7 +214,9 @@ The system consists of multiple sensor nodes installed in each room, which colle
 1. Classification Accuracy and Model Performance  
     - 모의 테스트 진행 완료, 정확도 98%  
 2. Real-World Testing Results  
+    - 테스트 진행 중
 3. User Feedback (Optional)  
+    - 피드백 진행 중
 
 ## 9. Conclusion  
 
