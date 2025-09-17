@@ -1,15 +1,73 @@
-Model/pretrained/Cnn10.pth
-*.pth
-Dataset 
-mp3_to_wav_converter/original_file
-mp3_to_wav_converter/wav_file
-Infer_Test_Dataset
-Dataset/Dataset/.DS_Store
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+.env/
+env/
+
+# Tool caches & testing artifacts
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+coverage.xml
+.coverage
+
+# Logs
+logs/
+*.log
+
+tmux-client-*.log
+tmux-server-*.log
+
+# OS artifacts
 .DS_Store
-Input_data
-DB/alerts.db 
-DB/inference_results.db 
-tmux-client-93951.log 
-tmux-server-93952.log 
-AGENTS.md
-logs
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+*.code-workspace
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Environment & secrets
+*.env
+.env.*
+.envrc
+
+# Data directories & generated assets
+Input_data/
+Dataset/
+Infer_Test_Dataset/
+mp3_to_wav_converter/original_file/
+mp3_to_wav_converter/wav_file/
+
+# Database files
+DB/*.db
+DB/*.sqlite
+DB/*.sqlite3
+DB/*.db-journal
+
+# Model weights & artifacts
+*.pth
+Model/pretrained/
+
+# Node / frontend
+node_modules/
+*.tsbuildinfo
+
+# Project-specific exclusions
+/AGENTS.md
+/server_tdoa.py
+/worker_tdoa.py
