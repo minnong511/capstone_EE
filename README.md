@@ -1,5 +1,9 @@
 # How to Run & Setup Instructions
 
+## Mac OS Users
+
+If you are using macOS,
+
 Before running the system, please follow these setup steps:
 
 1. **Install Homebrew** (for macOS users):  
@@ -136,17 +140,15 @@ Through sound, individuals can:
 - Understand the structure of a space  
 - Grasp the context of a situation  
 
-The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
-
-After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface. These auditory cues help people detect unseen dangers or recognize when someone is calling them.  
-
 However, individuals with hearing impairments face significant challenges in accessing this information. Without auditory input, it becomes difficult to:  
 
 - Recognize spatial and situational cues  
 - Stay aware of potential hazards  
 - Respond effectively to surrounding events  
 
-As a result, they may experience daily inconveniences and safety risks, which can limit thThe system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface.eir independence in everyday life.  
+As a result, they may experience daily inconveniences and safety risks, which can limit thThe system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
+
+After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user 
 
 #### 1.2 Project Objectives  
 
@@ -154,7 +156,9 @@ To develop an affordable home network-based system that collects sound data and 
 
 #### 1.3 System Overview  
 
-The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface.  
+The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
+
+After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface. These auditory cues help people detect unseen dangers or recognize when someone is calling them.  
 
 ## 2. Related Work  
 
@@ -162,54 +166,37 @@ The system consists of multiple sensor nodes installed in each room, which colle
 2. Accessibility Technologies in Smart Homes  
 3. Comparison with Similar Research  
 
-## 3. System Design  
+# Project Timeline
 
-- 6월 4주차 개발 진행 예정  
+## 1. System Design  
 
 1. Hardware Architecture  
 2. Hardware Configuration  
 3. Central Hub and Server Design  
 4. Communication Protocols  
 
-## 4. Sound Classification  
-
-- 4월 4주차, 5월 1주차 개발 완료  
+## 2. Sound Classification  
 
 1. Dataset Collection and Preprocessing  
-    - 개발 완료  
 2. PANNs Model and Transfer Learning  
-    - 개발 완료  
 3. Class Definitions and Label Mapping  
-    - 개발 완료  
 4. Embedding Extraction and Classifier Design  
-    - 개발 완료  
 
-## 5. Alert Management System  
+## 3. Alert Management System  
 
 1. Mapping Sound Classes to Alert Priorities  
-    - 개발 완료  
 2. Personalized Notifications (Vibration, Visuals, Logging)  
-    - 개발 완료  
 
-## 6. Implementation  
+## 4. Implementation  
 
-1. Data Flow and System Workflow  
-    - 개발완료  
+1. Data Flow and System Workflow   
 2. Integration of ESP32 and Server  
-    - 개발 완료
 3. Implementation Images and Descriptions  
-    - 개발 완료  
-
-![Connection Log](Image/connection_log.png)  
-실시간 업로드가 접속 로그에 기록되는 모습을 확인할 수 있습니다.  
-
-![Multiple Connections](Image/multconnect.png)  
-다중 센서 노드가 동시에 접속하는 경우의 처리 흐름을 시각화했습니다.  
 
 ![DB Visualization](Image/db_visualization.png)  
 최신 인퍼런스 결과가 SQLite DB에 반영된 상태를 시각화한 화면입니다.  
 
-## 7. Android App
+## 5. Android App
 
 1. Architecture & Networking  
     - Receives server events via HTTP/WebSocket and keeps worker alerts synchronized (Completed)  
@@ -228,12 +215,9 @@ The system consists of multiple sensor nodes installed in each room, which colle
 5. Push & Haptics  
     - Supports priority-based notification channels, vibration patterns, and user preferences (Completed)  
 6. Testing & Release Prep  
-    - Running Espresso UI tests, rolling out to internal track, refining QA checklist (In progress)  
+    - Running UI tests, rolling out to internal track, refining QA checklist (In progress)  
 
-
------------------------ 2025 Q3,Q4 --------------------------  
-
-## 8. Evaluation  
+## 6. Evaluation  
 
 1. Classification Accuracy and Model Performance  
     - 모의 테스트 진행 완료, 정확도 98%  
@@ -242,7 +226,7 @@ The system consists of multiple sensor nodes installed in each room, which colle
 3. User Feedback (Optional)  
     - 피드백 진행 중
 
-## 9. Conclusion  
+# Conclusion  
 
 1. Summary and Achievements  
 2. Limitations and Challenges  
