@@ -27,6 +27,12 @@ Before running the system, please follow these setup steps:
    cd capstone_EE
    ```
 
+4. **Grant execute permission to the script**  
+   Before running the script, make sure it is executable:
+   ```bash
+   chmod +x run_tmux.sh
+   ```
+
 ## Windows Users
 
 If you are using Windows, follow these additional steps before running the system:
@@ -58,10 +64,28 @@ If you are using Windows, follow these additional steps before running the syste
    chmod +x run_tmux.sh
    ```
 
+
+
 After completing the setup, run the following command to start the system:
 
 ```bash
 ./run_tmux.sh
+```
+
+When the command excutes successfully, you'll see the following output:
+
+```bash
+[OK] tmux 세션 2개 생성됨.
+ - worker_socket 세션: tmux attach -t worker_socket
+ - server 세션: tmux attach -t server
+```
+This confirms that two tmux sessions have been successfully created:
+
+To close both sessions, run the following twice in your terminal 
+
+```bash
+tmux kill-session
+tmux kill-session
 ```
 
 # Project Directory Structure
@@ -192,7 +216,7 @@ The system consists of multiple sensor nodes installed in each room, which colle
 2. Backend Integration Layer  
     - Implements retry strategy (Completed)  
 
-    
+
 3. Local DB & Storage  
     - Stores alert logs with Room DB and manages sync queue using WorkManager (Completed)  
 
