@@ -1,0 +1,13 @@
+bleak
+flask
+matplotlib
+numpy
+pandas
+scikit-learn
+scipy
+seaborn
+soundfile
+torch
+torchaudio
+torchlibrosa
+websockets

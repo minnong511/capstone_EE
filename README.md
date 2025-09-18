@@ -85,10 +85,18 @@ When the command excutes successfully, you'll see the following output:
 ```
 This confirms that two tmux sessions have been successfully created:
 
-To close both sessions, run the following twice in your terminal 
+
+
+To watch sessions working, run the following command 
 
 ```bash
-tmux kill-session
+tmux attach -t worker_socket
+tmux attach -t server
+```
+
+To close both sessions, run the following command in your terminal 
+
+```bash
 tmux kill-session
 ```
 
