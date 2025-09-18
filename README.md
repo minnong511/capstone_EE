@@ -68,7 +68,7 @@ If you are using Windows, follow these additional steps before running the syste
    chmod +x run_tmux.sh
    ```
 
-
+## After completing the setup 
 
 After completing the setup, run the following command to start the system:
 
