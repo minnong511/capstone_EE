@@ -6,6 +6,7 @@ import sqlite3
 import logging
 from torch.utils.data import DataLoader
 from datetime import datetime, timedelta
+from pathlib import Path
 import numpy as np
 try:
     import soundfile as sf
@@ -13,7 +14,13 @@ try:
 except Exception:
     _HAVE_SF = False
     import wave
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MODULE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = MODULE_DIR.parent
+DB_PATH = PROJECT_ROOT / "DB" / "inference_results.db"
+
+project_root_str = str(PROJECT_ROOT)
+if project_root_str not in sys.path:
+    sys.path.append(project_root_str)
 
 from Model.base_model_panns import (
     PANNsCNN10,
@@ -42,7 +49,7 @@ from Model.base_model_panns import (
     # 즉 DB에 insert 되어야 함 .
 
 # 전역 DB 설정 (클래스 내부에서 처리)
-conn = sqlite3.connect("./DB/inference_results.db", check_same_thread=False) ## check_thread에 대한 내용 필요 
+conn = sqlite3.connect(str(DB_PATH), check_same_thread=False) ## check_thread에 대한 내용 필요 
 cursor = conn.cursor()
 
 
@@ -94,16 +101,18 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
 
     last_cleanup_time = datetime.now()
 
-    while True:
-        all_files = [f for f in os.listdir(real_time_folder) if f.endswith(".wav")]
+    real_time_dir = Path(real_time_folder)
 
-        for filename in all_files:
+    while True:
+        all_files = sorted(real_time_dir.glob("*.wav"))
+
+        for wav_path in all_files:
             try:
+                filename = wav_path.name
                 # 1. 파일명 확장 변경해서 중복 방지
                 #logging.info(f"파일 감지됨: {filename}")
-                original_path = os.path.join(real_time_folder, filename)
-                processing_path = original_path + ".processing"
-                os.rename(original_path, processing_path)
+                processing_path = wav_path.with_suffix(wav_path.suffix + ".processing")
+                wav_path.rename(processing_path)
                 
                 # 2. 메타정보 추출 (새 규칙: 19700101-090015_Sensor-03_Room102.wav)
                 #   parts = [ '19700101-090015', 'Sensor-03', 'Room102.wav' ]
@@ -119,7 +128,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 date, time_str = date_time.split('-')
 
                 # 파일 내용으로 dBFS 계산 (이전처럼 파일명에서 읽지 않음)
-                decibel = _compute_dbfs(processing_path)
+                decibel = _compute_dbfs(str(processing_path))
 
                 # 3. 추론
                 result = infer_audio(
@@ -144,7 +153,7 @@ def start_inference_loop(real_time_folder, panns_model, classifier_model, label_
                 conn.commit()
                 #logging.info("DB 저장 완료")
 
-                os.remove(processing_path)
+                processing_path.unlink(missing_ok=True)
 
             except Exception as e:
                 print(f"[ERROR] {filename}: {e}")

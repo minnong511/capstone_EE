@@ -48,7 +48,7 @@ Thumbs.db
 
 # Data directories & generated assets
 Input_data/
-Dataset/
+Dataset/Dataset_copy
 Infer_Test_Dataset/
 mp3_to_wav_converter/original_file/
 mp3_to_wav_converter/wav_file/

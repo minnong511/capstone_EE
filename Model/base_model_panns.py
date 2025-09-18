@@ -7,12 +7,20 @@ import os
 import numpy as np
 import seaborn as sns
 import pandas as pd
+from pathlib import Path
 
 
 from Model.models import Cnn10  # models.py에서 정의됨
 from torch.utils.data import Dataset
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
+
+
+MODEL_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = MODEL_DIR.parent
+PRETRAINED_CHECKPOINT = MODEL_DIR / "pretrained" / "Cnn10.pth"
+DATASET_DIR = PROJECT_ROOT / "Dataset" / "Dataset"
+CLASSIFIER_MODEL_PATH = MODEL_DIR / "classifier_model.pth"
 
 #-------------------------------------------------------------------------# 
 
@@ -39,7 +47,7 @@ def get_device():
 # 모델 찾음 : PANN // 
 
 class PANNsCNN10(nn.Module):
-    def __init__(self, checkpoint_path='./Model/pretrained/Cnn10.pth'):
+    def __init__(self, checkpoint_path: str | os.PathLike = PRETRAINED_CHECKPOINT):
         super().__init__()
         self.model = Cnn10(sample_rate=32000, window_size=1024, hop_size=320,
                            mel_bins=64, fmin=50, fmax=14000, classes_num=527)
@@ -54,7 +62,7 @@ class PANNsCNN10(nn.Module):
 
 # 테스트 실행
 # if __name__ == '__main__':
-#     model = PANNsCNN10('./Model/pretrained/Cnn10.pth')
+#     model = PANNsCNN10(PRETRAINED_CHECKPOINT)
 
 #     # (batch_size, waveform_length) → float32 중요!
 #     dummy_input = torch.randn(2, 32000).float()
@@ -168,7 +176,7 @@ class AudioEmbeddingDataset(Dataset):
 # 학습 루프 구성 
 # 클래스는 몇 개로 분류?? 
 
-label_dict = get_label_dict(root_dir='./Dataset/Dataset')
+label_dict = get_label_dict(root_dir=str(DATASET_DIR))
 
 class TransferClassifier(nn.Module):
     # input_dim은 CNN10 = 1024, CNN6 = 512 
@@ -190,7 +198,7 @@ class TransferClassifier(nn.Module):
 
 
 # ----------- 전이학습 후에 임베딩 추출하고, 추출된 임베딩과 라벨로 Classifier를 구현하는 부분임
-def train_classifier(classifier, dataloader, num_classes, epochs=10, save_path='Model/classifier_model.pth'):
+def train_classifier(classifier, dataloader, num_classes, epochs=10, save_path: str | os.PathLike = CLASSIFIER_MODEL_PATH):
     device = get_device()
     classifier = classifier.to(device)
     optimizer = optim.Adam(classifier.parameters(), lr=1e-3)
