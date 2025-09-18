@@ -4,6 +4,7 @@ import torch.optim as optim
 import torchaudio
 import platform
 import os 
+import warnings
 import numpy as np
 import seaborn as sns
 import pandas as pd
@@ -19,8 +20,56 @@ import matplotlib.pyplot as plt
 MODEL_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = MODEL_DIR.parent
 PRETRAINED_CHECKPOINT = MODEL_DIR / "pretrained" / "Cnn10.pth"
-DATASET_DIR = PROJECT_ROOT / "Dataset" / "Dataset"
+
+
+def resolve_dataset_dir() -> Path:
+    """Return the dataset directory, trying common locations automatically."""
+
+    env_path = os.environ.get("DATASET_DIR")
+    if env_path:
+        candidate = Path(env_path).expanduser().resolve()
+        if candidate.exists():
+            return candidate
+
+    candidates = [
+        PROJECT_ROOT / "Dataset" / "Dataset",
+        PROJECT_ROOT / "Dataset",
+        PROJECT_ROOT / "dataset" / "Dataset",
+        PROJECT_ROOT / "dataset",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    searched = ", ".join(str(path) for path in candidates)
+    raise FileNotFoundError(
+        "Dataset directory not found. Set the DATASET_DIR environment variable "
+        f"or create one of: {searched}"
+    )
+
+
+DATASET_DIR = resolve_dataset_dir()
 CLASSIFIER_MODEL_PATH = MODEL_DIR / "classifier_model.pth"
+
+
+def safe_torch_load(path: str | os.PathLike, map_location: str | torch.device = "cpu"):
+    """Load a torch object while preferring the safer weights_only path when available."""
+
+    kwargs = {"map_location": map_location}
+    try:
+        return torch.load(path, weights_only=True, **kwargs)
+    except TypeError:
+        # Older torch versions do not support weights_only
+        pass
+    except (RuntimeError, ValueError) as exc:
+        warnings.warn(
+            f"weights_only load failed for {path}: {exc}. Falling back to full pickle load.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    return torch.load(path, **kwargs)
 
 #-------------------------------------------------------------------------# 
 
@@ -51,8 +100,13 @@ class PANNsCNN10(nn.Module):
         super().__init__()
         self.model = Cnn10(sample_rate=32000, window_size=1024, hop_size=320,
                            mel_bins=64, fmin=50, fmax=14000, classes_num=527)
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        self.model.load_state_dict(checkpoint['model'])
+        checkpoint = safe_torch_load(checkpoint_path, map_location='cpu')
+        state_dict = checkpoint.get('model') if isinstance(checkpoint, dict) else checkpoint
+        if state_dict is None:
+            raise RuntimeError(
+                f"Unsupported checkpoint format for {checkpoint_path}; expected a state_dict or a dict containing 'model'."
+            )
+        self.model.load_state_dict(state_dict)
         self.model.eval()  # freeze
 
     def forward(self, x):

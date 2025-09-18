@@ -3,7 +3,14 @@ import logging, time, torch, asyncio
 from Model.inference_module import start_inference_loop
 from alert_system.notification import start_alert_checker
 from Model.base_model_panns import (
-    PANNsCNN10, TransferClassifier, get_device, get_label_dict
+    PANNsCNN10,
+    TransferClassifier,
+    get_device,
+    get_label_dict,
+    DATASET_DIR,
+    PRETRAINED_CHECKPOINT,
+    CLASSIFIER_MODEL_PATH,
+    safe_torch_load,
 )
 from data_visaualization.dbvisual_module import start_db_visualization
 from web.websocket_server import start_websocket_server, start_db_event_publisher
@@ -15,11 +22,14 @@ logging.basicConfig(
 )
 
 device = get_device()
-label_dict = get_label_dict(root_dir='./Dataset/Dataset')
+label_dict = get_label_dict(root_dir=str(DATASET_DIR))
 
-panns_model = PANNsCNN10('./Model/pretrained/Cnn10.pth').to(device)
+panns_model = PANNsCNN10(PRETRAINED_CHECKPOINT).to(device)
 classifier_model = TransferClassifier(input_dim=512, num_classes=len(label_dict))
-classifier_model.load_state_dict(torch.load('Model/classifier_model.pth', map_location=device))
+classifier_state = safe_torch_load(CLASSIFIER_MODEL_PATH, map_location=device)
+if isinstance(classifier_state, dict) and 'state_dict' in classifier_state:
+    classifier_state = classifier_state['state_dict']
+classifier_model.load_state_dict(classifier_state)
 classifier_model.to(device)
 classifier_model.eval()
 

@@ -3,15 +3,22 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 import time
 import logging
+from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(threadName)s] %(message)s')
 
-# 알림(alert) 정보를 데이터베이스에 저장하는 함수
-def save_alert_to_db(alert, db_path="./DB/alerts.db"):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ALERTS_DB = PROJECT_ROOT / "DB" / "alerts.db"
+DEFAULT_INFERENCE_DB = PROJECT_ROOT / "DB" / "inference_results.db"
 
-    # alerts 테이블이 없으면 생성
-    cursor.execute("""
+
+def _resolve_db_path(db_path: str | Path | None, default: Path) -> str:
+    base = default if db_path is None else Path(db_path)
+    return str(base.expanduser().resolve())
+
+
+def _ensure_alerts_schema(cursor: sqlite3.Cursor) -> None:
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at TEXT NOT NULL,
@@ -22,7 +29,27 @@ def save_alert_to_db(alert, db_path="./DB/alerts.db"):
             original_type TEXT,
             processed INTEGER DEFAULT 0
         )
-    """)
+        """
+    )
+
+
+def ensure_alerts_table(db_path: str | Path | None = None) -> None:
+    resolved = _resolve_db_path(db_path, DEFAULT_ALERTS_DB)
+    conn = sqlite3.connect(resolved)
+    try:
+        _ensure_alerts_schema(conn.cursor())
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# 알림(alert) 정보를 데이터베이스에 저장하는 함수
+def save_alert_to_db(alert, db_path: str | Path | None = None):
+    resolved = _resolve_db_path(db_path, DEFAULT_ALERTS_DB)
+    conn = sqlite3.connect(resolved)
+    cursor = conn.cursor()
+
+    _ensure_alerts_schema(cursor)
 
     # alert 정보를 테이블에 삽입
     cursor.execute("""
@@ -71,7 +98,8 @@ def get_person_call_priority(decibel):
 # 최근 이벤트를 데이터베이스에서 로드하는 함수
 # last_processed_time 이후의 데이터 중 30초 이내의 데이터만 필터링
 def load_recent_events(db_path, last_processed_time):
-    conn = sqlite3.connect(db_path)
+    resolved = _resolve_db_path(db_path, DEFAULT_INFERENCE_DB)
+    conn = sqlite3.connect(resolved)
     cursor = conn.cursor()
 
     # inference_results 테이블에서 필요한 컬럼만 선택해서 가져옴
@@ -173,7 +201,8 @@ def process_data(db_path, last_processed_time, cooldown_tracker):
 
 # 알림 체크를 주기적으로 수행하는 함수
 # 1초마다 데이터를 처리하고, 60초마다 DB의 오래된 데이터 정리 수행
-def start_alert_checker(db_path="./DB/inference_results.db"):
+def start_alert_checker(db_path: str | Path | None = None):
+    inference_db_path = _resolve_db_path(db_path, DEFAULT_INFERENCE_DB)
     last_time = datetime.now() - timedelta(seconds=5)
     cooldown_tracker = {}
     iteration_count = 0  # 실행 횟수 카운터 추가
@@ -181,7 +210,7 @@ def start_alert_checker(db_path="./DB/inference_results.db"):
 
     try:
         while True:
-            last_time = process_data(db_path, last_time, cooldown_tracker)
+            last_time = process_data(inference_db_path, last_time, cooldown_tracker)
             time.sleep(1)
             iteration_count += 1
 
@@ -193,7 +222,7 @@ def start_alert_checker(db_path="./DB/inference_results.db"):
             # 60초마다 inference_results와 alerts 테이블의 오래된 데이터 삭제
             if iteration_count % 60 == 0:  # every 60 seconds
                 # inference_results 테이블 유지 작업
-                conn = sqlite3.connect(db_path)
+                conn = sqlite3.connect(inference_db_path)
                 cursor = conn.cursor()
                 cursor.execute("""
                     DELETE FROM inference_results
@@ -207,20 +236,9 @@ def start_alert_checker(db_path="./DB/inference_results.db"):
                 conn.close()
 
                 # alerts 테이블 유지 작업
-                alerts_conn = sqlite3.connect("./DB/alerts.db")
+                alerts_conn = sqlite3.connect(_resolve_db_path(None, DEFAULT_ALERTS_DB))
                 alerts_cursor = alerts_conn.cursor()
-                alerts_cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS alerts (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        created_at TEXT NOT NULL,
-                        room_id TEXT NOT NULL,
-                        category TEXT NOT NULL,
-                        decibel REAL,
-                        priority INTEGER,
-                        original_type TEXT,
-                        processed INTEGER DEFAULT 0
-                    )
-                """)
+                _ensure_alerts_schema(alerts_cursor)
                 alerts_cursor.execute("""
                     DELETE FROM alerts
                     WHERE id NOT IN (

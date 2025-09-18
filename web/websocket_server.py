@@ -10,6 +10,8 @@ import logging
 import websockets
 from websockets.server import WebSocketServerProtocol
 
+from alert_system.notification import ensure_alerts_table
+
 
 """
 •	WebSocket 서버 기동 (start_websocket_server)
@@ -78,18 +80,23 @@ async def _broadcast_text(text: str):
 
 # --- SQLite helper ---
 _DB_PATH_CACHE = None
+_ALERTS_SCHEMA_READY = False
 def _connect_db():
     """
     Create a SQLite connection and set safe PRAGMAs for concurrent access.
     Resolve DB path relative to the project root so CWD changes (tmux, services) don't break it.
     """
     global _DB_PATH_CACHE
+    global _ALERTS_SCHEMA_READY
     if _DB_PATH_CACHE is None:
         # .../capstone_EE/web/websocket_server.py  -> project root = parent of "web"
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         db_path = os.path.join(project_root, "DB", "alerts.db")
         _DB_PATH_CACHE = db_path
         logging.info(f"[DB-WS] Using DB file: {_DB_PATH_CACHE}")
+    if not _ALERTS_SCHEMA_READY:
+        ensure_alerts_table(_DB_PATH_CACHE)
+        _ALERTS_SCHEMA_READY = True
     conn = sqlite3.connect(_DB_PATH_CACHE, timeout=2.0)
     try:
         conn.execute("PRAGMA journal_mode=WAL;")

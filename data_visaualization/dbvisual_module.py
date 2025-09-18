@@ -1,12 +1,15 @@
 # DB에서 알람 데이터 읽어서 실시간 heatmap 시각화
 
 import sqlite3
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from collections import Counter
 import logging
+from alert_system.notification import ensure_alerts_table, DEFAULT_ALERTS_DB
 from Model.base_model_panns import (
-    get_label_dict
+    get_label_dict,
+    DATASET_DIR,
 )
 
 
@@ -17,8 +20,11 @@ logging.basicConfig(
 )
 
 # 라벨 딕셔너리를 불러와서 카테고리 목록을 정렬
-label_dict = get_label_dict(root_dir='./Dataset/Dataset')
+label_dict = get_label_dict(root_dir=str(DATASET_DIR))
 categories = sorted(label_dict.keys())
+
+ALERTS_DB_PATH = Path(DEFAULT_ALERTS_DB)
+ensure_alerts_table(ALERTS_DB_PATH)
 
 # 전체 room_id 목록을 저장하는 전역 변수
 all_room_ids = []
@@ -30,7 +36,7 @@ def fetch_room_data():
     """
     global all_room_ids
     if not all_room_ids:
-        conn = sqlite3.connect('./DB/alerts.db')
+        conn = sqlite3.connect(str(ALERTS_DB_PATH))
         cursor = conn.cursor()
         cursor.execute("SELECT room_id FROM alerts ORDER BY id DESC LIMIT 100")
         results = cursor.fetchall()
@@ -48,7 +54,7 @@ def update_heatmap(i, ax):
     room_id와 카테고리별로 발생 빈도를 집계한 heatmap을 그립니다.
     """
     ax.clear()
-    conn = sqlite3.connect('./DB/alerts.db')
+    conn = sqlite3.connect(str(ALERTS_DB_PATH))
     cursor = conn.cursor()
     threshold_time = (datetime.now() - timedelta(seconds=30)).strftime('%Y-%m-%d %H:%M:%S')
     cursor.execute("SELECT room_id, category, created_at FROM alerts WHERE created_at >= ?", (threshold_time,))
