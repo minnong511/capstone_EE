@@ -59,9 +59,6 @@ DB/*.sqlite
 DB/*.sqlite3
 DB/*.db-journal
 
-# Model weights & artifacts
-*.pth
-Model/pretrained/
 
 # Node / frontend
 node_modules/
