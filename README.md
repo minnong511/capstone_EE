@@ -40,7 +40,7 @@
 
 ### Python Environment
 ```bash
-conda create -n capstone python=3.10
+conda create -n capstone python=3.11
 conda activate capstone
 pip install flask torch torchaudio pandas seaborn scikit-learn matplotlib
 ```
@@ -63,14 +63,6 @@ python server.py
 python worker.py
 ```
 
-WAV 업로드 테스트는 다음 명령으로 수행할 수 있습니다.
-```bash
-curl -X POST --data-binary @sample.wav \
-  -H "X-Room-ID: Room101" \
-  -H "X-Mic-ID: Sensor01" \
-  http://localhost:5050/upload
-```
-
 ---
 
 ## Project Structure
@@ -83,8 +75,8 @@ capstone_EE/
 ├─ web/
 │  └─ websocket_server.py   # 실시간 알림 웹소켓 서버
 ├─ Model/
-│  ├─ base_model_panns.py
-│  ├─ inference_module.py
+│  ├─ base_model_panns.py   # 백본 네트워크 
+│  ├─ inference_module.py   # 데이터 추론용 모듈 
 │  ├─ models.py
 │  ├─ pytorch_utils.py
 │  └─ training.py
@@ -112,7 +104,10 @@ capstone_EE/
 
 ## System Overview
 
-센서 노드는 각 방에 설치되며, 실시간으로 소리를 수집합니다. 임계치를 초과한 소리가 감지되면 서버로 전송되고, 서버는 딥러닝 모델(PANNs 백본 기반)로 사건을 분류합니다. 이후 알림 관리 알고리즘이 중복 및 불필요한 알림을 제거하고, 사용자에게 이벤트 유형과 위치를 전달합니다. 시각화 도구와 모바일 앱이 동일한 DB(`DB/inference_results.db`)를 공유하여 최신 결과를 확인합니다.
+센서 노드는 각 방에 설치되며, 센서들이 실시간으로 소리를 수집합니다. 다만 모든 소리가 녹음되는 것은 아니며,사생활보호를 위해 임계치를 초과한 소리만이 녹음됩니다.  
+임계치를 초과한 소리가 감지되면 서버로 전송되고, 서버는 딥러닝 모델(PANNs 백본 기반)로 사건을 분류합니다. 
+
+이후 알림 관리 알고리즘이 중복 및 불필요한 알림을 제거하고, 사용자에게 이벤트 유형과 위치를 전달합니다. 시각화 도구와 모바일 앱이 동일한 DB(`DB/inference_results.db`)를 공유하여 최신 결과를 확인합니다.
 
 ### Workflow
 1. 센서 노드가 주변 소음을 기록하고 임계치 기반으로 이벤트를 추출
@@ -122,16 +117,6 @@ capstone_EE/
 5. 웹소켓 서버(`web/websocket_server.py`)와 모바일 앱이 알림을 수신
 6. 데이터 시각화 모듈이 최신 결과를 표시하고 로그를 확인
 
----
-
-## Validation
-
-1. 서버와 워커를 실행합니다.
-2. `curl` 명령으로 샘플 WAV를 업로드합니다.
-3. 결과 확인:
-   ```bash
-   sqlite3 DB/inference_results.db "SELECT room_id, date, time, category FROM inference_results ORDER BY id DESC LIMIT 5;"
-   ```
 
 ---
 
