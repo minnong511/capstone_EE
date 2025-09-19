@@ -42,8 +42,9 @@
 ```bash
 conda create -n capstone python=3.11
 conda activate capstone
-pip install flask torch torchaudio pandas seaborn scikit-learn matplotlib
+pip install -r requirements.txt
 ```
+`requirements.txt`에 필요한 라이브러리가 정리되어 있습니다. 
 
 ### Run the System
 ```bash
@@ -123,8 +124,16 @@ capstone_EE/
 ## Project Milestones
 
 ### 1. System Design
-- Hardware Architecture 및 Configuration 확립
-- 중앙 허브/서버 구성, 통신 프로토콜 정의
+- Hardware Architecture 및 Configuration 설정 
+    - ESP32 
+    - INMP441 MEMS MIC
+- 중앙 서버 구성, 통신 프로토콜 정의
+    - Main server : Raspberry Pi5 8GB 
+    - ESP32 - Server
+        - Python Flask 
+    - Server - APP
+        - WebSocket
+
 
 ### 2. Sound Classification
 - 데이터셋 구축 및 전처리
@@ -141,7 +150,7 @@ capstone_EE/
 - 구현 이미지 및 세부 설명 정리
 
 ![DB Visualization](Image/db_visualization.png)
-최신 인퍼런스 결과가 SQLite DB에 반영된 화면 예시입니다.
+추론 결과가 SQLite DB에 반영된 화면 예시입니다.
 
 ### 5. Android App
 - 서버 이벤트를 HTTP/WebSocket으로 수신하여 워커 알림과 동기화 (완료)
@@ -160,7 +169,4 @@ capstone_EE/
 
 ---
 
-## Credits
-- Team Seoultech Electrical Engineering 2025 Capstone Design
-- 문의: 캡스톤디자인 프로젝트 팀
 
