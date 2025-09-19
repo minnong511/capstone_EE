@@ -1,114 +1,88 @@
-# How to Run & Setup Instructions
+# Smart Home Assistance System for the Hearing Impaired
 
-## Mac OS Users
+서울과학기술대학교 전기정보공학과 2025년 캡스톤디자인 프로젝트
+---
 
-If you are using macOS,
+## Quick Start
 
-Before running the system, please follow these setup steps:
-
-1. **Install Homebrew** (for macOS users):  
-   Homebrew is required for installing dependencies such as git and tmux.
+### macOS
+1. **Install Homebrew** (필요 패키지 설치용)
    ```bash
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
-
-2. **Install git and tmux** using Homebrew:
+2. **Install git, tmux**
    ```bash
    brew install git tmux
    ```
-   tmux is a terminal multiplexer that allows you to manage multiple terminal sessions from a single window. It is required for running the provided scripts and must be installed on macOS.
-
-   **Basic tmux usage example:**
-   ```bash
-   tmux                # Start a new tmux session
-   # ... run your commands ...
-   Ctrl+b then d       # Detach from the tmux session (press Ctrl+b, then release and press d)
-   ```
-
-3. **Clone the repository and navigate to the project folder**:
+3. **Clone the repository**
    ```bash
    git clone <repository_url>
    cd capstone_EE
-   ```
-
-4. **Grant execute permission to the script**  
-   Before running the script, make sure it is executable:
-   ```bash
    chmod +x run_tmux.sh
    ```
 
-## Windows Users
-
-If you are using Windows, follow these additional steps before running the system:
-
-1. **Install Windows Subsystem for Linux (WSL)**  
-   Open PowerShell as Administrator and run:
+### Windows (WSL)
+1. **Enable WSL**
    ```powershell
    wsl --install
    ```
-   This will install WSL and prompt you to choose a Linux distribution (such as Ubuntu).
-
-2. **Install git and tmux inside WSL**  
-   After setting up Ubuntu (or your chosen distribution), open the WSL terminal and run:
+2. **Install git, tmux inside WSL**
    ```bash
    sudo apt update
    sudo apt install git tmux
    ```
-
-3. **Clone the repository and navigate to the project folder**  
-   As with macOS/Linux, run:
+3. **Clone and prepare the project**
    ```bash
    git clone <repository_url>
    cd capstone_EE
-   ```
-
-4. **Grant execute permission to the script**  
-   Before running the script, make sure it is executable:
-   ```bash
    chmod +x run_tmux.sh
    ```
 
-## After completing the setup 
+### Python Environment
+```bash
+conda create -n capstone python=3.10
+conda activate capstone
+pip install flask torch torchaudio pandas seaborn scikit-learn matplotlib
+```
 
-After completing the setup, run the following command to start the system:
-
+### Run the System
 ```bash
 ./run_tmux.sh
 ```
-
-When the command excutes successfully, you'll see the following output:
-
-```bash
+성공 시 다음과 같은 메시지가 출력됩니다. 
+```text
 [OK] tmux 세션 2개 생성됨.
  - worker_socket 세션: tmux attach -t worker_socket
  - server 세션: tmux attach -t server
 ```
-This confirms that two tmux sessions have been successfully created:
+필요 시 `tmux attach -t <세션명>`으로 각각의 세션을 확인하고, 종료는 `tmux kill-session`을 사용합니다.
 
-
-
-To watch sessions working, run the following command 
-
+개별 실행이 필요하면 다음 명령을 사용하세요.
 ```bash
-tmux attach -t worker_socket
-tmux attach -t server
+python server.py
+python worker.py
 ```
 
-To close both sessions, run the following command in your terminal 
-
+WAV 업로드 테스트는 다음 명령으로 수행할 수 있습니다.
 ```bash
-tmux kill-session
+curl -X POST --data-binary @sample.wav \
+  -H "X-Room-ID: Room101" \
+  -H "X-Mic-ID: Sensor01" \
+  http://localhost:5050/upload
 ```
 
-# Project Directory Structure
+---
+
+## Project Structure
 
 ```plaintext
 capstone_EE/
 ├─ server.py                # HTTP 수신 서버, 업로드된 WAV 저장
-├─ worker_socket.py         # 추론 및 알림 기능, 웹소켓 전송 기능
+├─ worker.py                # 사운드 추론 및 알림 필터링
+├─ worker_socket.py         # 웹소켓 전송 기능을 포함한 워커
 ├─ web/
 │  └─ websocket_server.py   # 실시간 알림 웹소켓 서버
-├─ Model/                   # 사운드 분류 모델 및 추론 유틸
+├─ Model/
 │  ├─ base_model_panns.py
 │  ├─ inference_module.py
 │  ├─ models.py
@@ -116,126 +90,92 @@ capstone_EE/
 │  └─ training.py
 ├─ alert_system/
 │  └─ notification.py       # 중복 알림 필터링 및 전송 로직
-├─ node/                    # 센서 노드·장치 측 코드
-│  ├─ wifi.ino
-│  └─ node_wifi.py
-├─ DB/                      # SQLite 연동 및 점검 스크립트
+├─ node/
+│  ├─ node_wifi.py          # Flask 업로드 서버 및 CLI 유틸리티
+│  └─ wifi.ino               # ESP32 펌웨어
+├─ DB/
+│  ├─ inference_results.db
 │  ├─ dataset_check.py
 │  ├─ dataset_vis.py
 │  ├─ insert.py
 │  ├─ query.py
 │  └─ sql_check.py
+├─ Input_data/
+│  ├─ real_input/           # 실시간 업로드 저장 경로
+│  └─ simulator_input/
 ├─ data_visaualization/
-│  └─ dbvisual_module.py    # DB 시각화 도구
-└─run_tmux.sh              # 서버·워커를 tmux 세션으로 실행
+│  └─ dbvisual_module.py
+└─ run_tmux.sh
 ```
 
-# Seoultech EE 2025 Capstone Design (이민형, 김수왕, 김민지)  
-### 이민형, 김수왕, 김민지  
+---
 
-## Project Description  
+## System Overview
 
-**Smart Home Assistance System for the Hearing Impaired**  
+센서 노드는 각 방에 설치되며, 실시간으로 소리를 수집합니다. 임계치를 초과한 소리가 감지되면 서버로 전송되고, 서버는 딥러닝 모델(PANNs 백본 기반)로 사건을 분류합니다. 이후 알림 관리 알고리즘이 중복 및 불필요한 알림을 제거하고, 사용자에게 이벤트 유형과 위치를 전달합니다. 시각화 도구와 모바일 앱이 동일한 DB(`DB/inference_results.db`)를 공유하여 최신 결과를 확인합니다.
 
-### 1. Introduction  
+### Workflow
+1. 센서 노드가 주변 소음을 기록하고 임계치 기반으로 이벤트를 추출
+2. 녹음된 WAV 파일을 서버로 업로드 (`server.py` → `Input_data/real_input/`)
+3. `worker.py`가 새 파일을 감지하여 추론 수행 및 결과를 DB에 저장
+4. `alert_system/notification.py`가 우선순위와 중복 여부를 판별
+5. 웹소켓 서버(`web/websocket_server.py`)와 모바일 앱이 알림을 수신
+6. 데이터 시각화 모듈이 최신 결과를 표시하고 로그를 확인
 
-#### 1.1 Background and Motivation  
+---
 
-Hearing plays a crucial role in how people perceive and interact with their environment.  
-Through sound, individuals can:  
+## Validation
 
-- Determine the direction and distance of objects or events  
-- Understand the structure of a space  
-- Grasp the context of a situation  
+1. 서버와 워커를 실행합니다.
+2. `curl` 명령으로 샘플 WAV를 업로드합니다.
+3. 결과 확인:
+   ```bash
+   sqlite3 DB/inference_results.db "SELECT room_id, date, time, category FROM inference_results ORDER BY id DESC LIMIT 5;"
+   ```
 
-However, individuals with hearing impairments face significant challenges in accessing this information. Without auditory input, it becomes difficult to:  
+---
 
-- Recognize spatial and situational cues  
-- Stay aware of potential hazards  
-- Respond effectively to surrounding events  
+## Project Milestones
 
-As a result, they may experience daily inconveniences and safety risks, which can limit thThe system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
+### 1. System Design
+- Hardware Architecture 및 Configuration 확립
+- 중앙 허브/서버 구성, 통신 프로토콜 정의
 
-After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user 
+### 2. Sound Classification
+- 데이터셋 구축 및 전처리
+- PANNs 기반 전이학습과 분류기 설계
+- 클래스 정의 및 라벨 매핑, 임베딩 추출 파이프라인 구축
 
-#### 1.2 Project Objectives  
+### 3. Alert Management
+- 소리 클래스별 알림 우선순위 설정
+- 진동/시각화/로그 기반의 맞춤 알림 제공
 
-To develop an affordable home network-based system that collects sound data and analyzes it using deep learning, with the goal of providing hearing-impaired individuals with real-time information about the location and context of acoustic events in their living environment.  
+### 4. Implementation
+- ESP32 ↔ 서버 통신 통합
+- 데이터 플로우 및 시스템 워크플로 검증
+- 구현 이미지 및 세부 설명 정리
 
-#### 1.3 System Overview  
+![DB Visualization](Image/db_visualization.png)
+최신 인퍼런스 결과가 SQLite DB에 반영된 화면 예시입니다.
 
-The system consists of multiple sensor nodes installed in each room, which collect audio data in real-time. These sound recordings are transmitted to a central home server, where deep learning-based inference is performed to classify the events. 
+### 5. Android App
+- 서버 이벤트를 HTTP/WebSocket으로 수신하여 워커 알림과 동기화 (완료)
+- 재전송 전략 및 백엔드 연계 계층 구현 (완료)
+- Room DB 및 WorkManager 기반 로컬 로그 관리 (완료)
+- 접근성 중심 UI, 이벤트 타임라인, 방별 필터 제공 (완료)
+- 우선순위별 푸시/진동 채널 지원, 사용자 선호도 설정 (완료)
+- UI 테스트 및 QA 체크리스트 정비 (진행 중)
 
-After inference, a notification management algorithm filters out duplicate or unnecessary alerts. Finally, only meaningful notifications—containing event type and location—are delivered to the user through the designated interface. These auditory cues help people detect unseen dangers or recognize when someone is calling them.  
+![Connection Log](Image/connection_log.png)
+실시간 업로드가 접속 로그에 기록되는 모습을 확인할 수 있습니다.
 
-## 2. Related Work  
+### 6. Evaluation
+- 모의 테스트 정확도 98% 달성
+- 실환경 테스트 진행 중, 사용자 피드백 수집 중
 
-1. Existing Sound Recognition Systems  
-2. Accessibility Technologies in Smart Homes  
-3. Comparison with Similar Research  
+---
 
-# Project Timeline
+## Credits
+- Team Seoultech Electrical Engineering 2025 Capstone Design
+- 문의: 캡스톤디자인 프로젝트 팀
 
-## 1. System Design  
-
-1. Hardware Architecture  
-2. Hardware Configuration  
-3. Central Hub and Server Design  
-4. Communication Protocols  
-
-## 2. Sound Classification  
-
-1. Dataset Collection and Preprocessing  
-2. PANNs Model and Transfer Learning  
-3. Class Definitions and Label Mapping  
-4. Embedding Extraction and Classifier Design  
-
-## 3. Alert Management System  
-
-1. Mapping Sound Classes to Alert Priorities  
-2. Personalized Notifications (Vibration, Visuals, Logging)  
-
-## 4. Implementation  
-
-1. Data Flow and System Workflow   
-2. Integration of ESP32 and Server  
-3. Implementation Images and Descriptions  
-
-![DB Visualization](Image/db_visualization.png)  
-최신 인퍼런스 결과가 SQLite DB에 반영된 상태를 시각화한 화면입니다.  
-
-## 5. Android App
-
-1. Architecture & Networking  
-    - Receives server events via HTTP/WebSocket and keeps worker alerts synchronized (Completed)  
-2. Backend Integration Layer  
-    - Implements retry strategy (Completed)  
-
-
-3. Local DB & Storage  
-    - Stores alert logs with Room DB and manages sync queue using WorkManager (Completed)  
-
-![Connection Log](Image/connection_log.png)  
-실시간 업로드가 접속 로그에 기록되는 모습을 확인할 수 있습니다.  
-
-4. Frontend UI/UX  
-    - Delivers accessibility-first screens, event timeline, and per-room filters/visualizations (Completed)  
-5. Push & Haptics  
-    - Supports priority-based notification channels, vibration patterns, and user preferences (Completed)  
-6. Testing & Release Prep  
-    - Running UI tests, rolling out to internal track, refining QA checklist (In progress)  
-
-## 6. Evaluation  
-
-1. Classification Accuracy and Model Performance  
-    - 모의 테스트 진행 완료, 정확도 98%  
-2. Real-World Testing Results  
-    - 테스트 진행 중
-3. User Feedback (Optional)  
-    - 피드백 진행 중
-
-# Conclusion  
-
-1. Summary and Achievements  
-2. Limitations and Challenges  
-3. Future Work and Improvements  
