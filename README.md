@@ -256,9 +256,6 @@ _최종적으로 알림을 출력하는 모습_
 - ESP32 ↔ 서버 통신 통합 (완료)
 - 데이터 송수신 및 시스템 작동 검증 (완료)
 
-![DB Visualization](Image/db_visualization.png)
-추론 결과가 SQLite DB에 반영된 화면 예시입니다.
-
 ### 5. Android App
 - 서버 이벤트를 HTTP/WebSocket으로 수신하여 워커 알림과 동기화 (완료)
 - 재전송 전략 및 백엔드 연계 계층 구현 (완료)
