@@ -229,7 +229,7 @@ _최종적으로 알림을 출력하는 모습_
 
 ### 2025.03.01 ~ 2025.11.27
 
-### 1. System Design
+## 1. System Design
 - Hardware Architecture 및 Configuration 설정 (완료)
     - ESP32 
     - INMP441 MEMS MIC
@@ -241,22 +241,22 @@ _최종적으로 알림을 출력하는 모습_
         - WebSocket
 
 
-### 2. Sound Classification
+## 2. Sound Classification
 - 데이터셋 구축 및 전처리 (완료)
 - PANNs 기반 전이학습과 분류기 설계 (완료)
 - 클래스 정의 및 라벨 매핑, 임베딩 추출 파이프라인 구축 (완료)
 - 분류기 학습 및 추론 테스트 (완료)
 
-### 3. Alert Management
+## 3. Alert Management
 - 소리 클래스별 알림 우선순위 설정 (완료)
 - 알림 처리 분류 알고리즘 작성 (완료)
 - 알고리즘 코드 구현 (완료)
 
-### 4. Implementation
+## 4. Implementation
 - ESP32 ↔ 서버 통신 통합 (완료)
 - 데이터 송수신 및 시스템 작동 검증 (완료)
 
-### 5. Android App
+## 5. Android App
 - 서버 이벤트를 HTTP/WebSocket으로 수신하여 워커 알림과 동기화 (완료)
 - 재전송 전략 및 백엔드 연계 계층 구현 (완료)
 - Room DB 및 WorkManager 기반 로컬 로그 관리 (완료)
@@ -264,6 +264,6 @@ _최종적으로 알림을 출력하는 모습_
 - 우선순위별 푸시/진동 채널 지원, 사용자 선호도 설정 (완료)
 - UI 테스트 및 QA (완료)
 
-### 6. Evaluation
+## 6. Evaluation
 - 모의 테스트 정확도 98% 달성 (완료)
 - 실환경 테스트 진행 중, 사용자 피드백 수집 중 (완료)
