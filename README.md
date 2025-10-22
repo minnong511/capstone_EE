@@ -155,7 +155,7 @@ Full Scale $=32768$일 때 블록의 dBFS:
 $$
 d_i=20\log_{10}\!\left(\frac{\mathrm{RMS}}{32768+\varepsilon}\right)
 $$
-> $\varepsilon$는 $\log(0)$ 방지용의 아주 작은 값.
+> $\varepsilon$는 $\log(0)$ 방지용의 아주 작은 값. 분모가 0으로 되어서 오버플로우되는 것을 방지합니다
 
 ---
 
